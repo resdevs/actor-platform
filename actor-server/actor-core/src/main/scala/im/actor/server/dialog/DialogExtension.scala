@@ -56,6 +56,10 @@ final class DialogExtensionImpl(system: ActorSystem) extends DialogExtension wit
       case _ ⇒ f
     }
 
+  //TODO: добавить метод
+  // def sendServerMessage
+  // который будет отправлять сообщение с сервера, и всем всем отправлять UpdateMessage
+
   def sendMessage(
     peer:         ApiPeer,
     senderUserId: UserId,
@@ -79,12 +83,15 @@ final class DialogExtensionImpl(system: ActorSystem) extends DialogExtension wit
         isFat = isFat,
         forUserId = forUserId map (Int32Value(_))
       )
-      (userExt.processorRegion.ref ? UserEnvelope(senderUserId).withDialogEnvelope(DialogEnvelope().withSendMessage(sendMessage))).mapTo[SeqStateDate]
+      (userExt.processorRegion.ref ?
+        UserEnvelope(senderUserId)
+        .withDialogEnvelope(DialogEnvelope().withSendMessage(sendMessage))).mapTo[SeqStateDate]
     }
 
   /**
    * Method used to send messages from bots, or on behalf of user.
-   * This method may not used from rpc calls, or anywhere else, where we need to approve user's input
+   * This method should not used from rpc calls, or anywhere else, where we need to approve user's input
+   * Violators will be punished.
    */
   def sendMessageInternal(
     peer:         ApiPeer,
@@ -93,8 +100,8 @@ final class DialogExtensionImpl(system: ActorSystem) extends DialogExtension wit
     message:      ApiMessage,
     isFat:        Boolean        = false,
     forUserId:    Option[UserId] = None
-  ): Future[SeqStateDate] =
-    withValidPeer(peer.asModel, senderUserId, failed = FastFuture.successful(SeqStateDate())) {
+  ): Future[Unit] =
+    withValidPeer(peer.asModel, senderUserId, failed = FastFuture.successful(())) {
       // we don't set date here, cause actual date set inside dialog processor
       val sendMessage = SendMessage(
         origin = Some(Peer.privat(senderUserId)),
@@ -107,7 +114,9 @@ final class DialogExtensionImpl(system: ActorSystem) extends DialogExtension wit
         isFat = isFat,
         forUserId = forUserId map (Int32Value(_))
       )
-      (userExt.processorRegion.ref ? UserEnvelope(senderUserId).withDialogEnvelope(DialogEnvelope().withSendMessage(sendMessage))).mapTo[SeqStateDate]
+      (userExt.processorRegion.ref ?
+        UserEnvelope(senderUserId)
+        .withDialogEnvelope(DialogEnvelope().withSendMessage(sendMessage))).mapTo[SeqStateDate] map (_ ⇒ ())
     }
 
   def ackSendMessage(peer: Peer, sm: SendMessage): Future[Unit] =

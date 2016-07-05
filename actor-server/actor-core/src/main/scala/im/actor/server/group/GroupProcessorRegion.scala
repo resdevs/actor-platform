@@ -2,30 +2,23 @@ package im.actor.server.group
 
 import akka.actor.{ ActorRef, ActorSystem, Props }
 import akka.cluster.sharding.{ ClusterSharding, ClusterShardingSettings, ShardRegion }
-import akka.event.Logging
+import im.actor.server.groupV2.GroupEnvelopeV2
+import im.actor.server.group.v2.GroupProcessorV2
 
 object GroupProcessorRegion {
   private def extractEntityId(system: ActorSystem): ShardRegion.ExtractEntityId = {
-    val log = Logging(system, getClass)
-
-    {
-      case c: GroupCommand ⇒ (c.groupId.toString, c)
-      case q: GroupQuery   ⇒ (q.groupId.toString, q)
-      case GroupEnvelope(groupId, dialogEnvelope) ⇒
-        (
-          groupId.toString,
-          dialogEnvelope.get
-        )
-    }
+    case GroupEnvelopeV2(Some(groupId), command, query) ⇒
+      (
+        groupId.toString,
+        if (command.isDefined) command else query // payload
+      )
   }
 
-  private def extractShardId(system: ActorSystem): ShardRegion.ExtractShardId = msg ⇒ msg match {
-    case c: GroupCommand  ⇒ (c.groupId % 100).toString // TODO: configurable
-    case q: GroupQuery    ⇒ (q.groupId % 100).toString
-    case e: GroupEnvelope ⇒ (e.groupId % 100).toString
+  private def extractShardId(system: ActorSystem): ShardRegion.ExtractShardId = {
+    case GroupEnvelopeV2(Some(groupId), _, _) ⇒ (groupId % 100).toString // TODO: configurable
   }
 
-  val typeName = "GroupProcessor"
+  private val typeName = "GroupProcessor"
 
   private def start(props: Props)(implicit system: ActorSystem): GroupProcessorRegion =
     GroupProcessorRegion(ClusterSharding(system).start(
@@ -36,7 +29,7 @@ object GroupProcessorRegion {
       extractShardId = extractShardId(system)
     ))
 
-  def start()(implicit system: ActorSystem): GroupProcessorRegion = start(GroupProcessor.props)
+  def start()(implicit system: ActorSystem): GroupProcessorRegion = start(GroupProcessorV2.props)
 
   def startProxy()(implicit system: ActorSystem): GroupProcessorRegion =
     GroupProcessorRegion(ClusterSharding(system).startProxy(

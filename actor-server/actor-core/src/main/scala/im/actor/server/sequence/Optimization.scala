@@ -9,6 +9,8 @@ import im.actor.server.model.SerializedUpdate
 object Optimization {
   type UpdateHeader = Int
   type Func = SerializedUpdate ⇒ SerializedUpdate
+
+  // это должна быть функция, которая работает с старыми клиентами, и все новые апдейты изымает
   val EmptyFunc: Func = identity[SerializedUpdate]
 
   private val emptyUpdate = SerializedUpdate(

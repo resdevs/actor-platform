@@ -330,6 +330,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with GroupComm
 
       for {
         _ ← db.run(GroupRepo.updateTitle(groupId, title, clientUserId, randomId, date))
+        // silent message write. should be loud in case of
         _ ← dialogExt.writeMessage(
           ApiPeer(ApiPeerType.Group, groupId),
           clientUserId,

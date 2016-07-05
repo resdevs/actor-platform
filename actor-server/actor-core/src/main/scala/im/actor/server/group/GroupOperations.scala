@@ -28,10 +28,11 @@ private[group] sealed trait Commands extends UserAcl {
   def create(groupId: Int, clientUserId: Int, clientAuthId: Long, title: String, randomId: Long, userIds: Set[Int], typ: GroupType.ValueType = GroupType.General): Future[CreateAck] =
     (processorRegion.ref ? Create(groupId, typ, clientUserId, clientAuthId, title, randomId, userIds.toSeq)).mapTo[CreateAck]
 
-  // TODO: figure out, do we need this on group v2 rework.
+  // TODO: REMOVE
   def createInternal(groupId: Int, typ: GroupType.ValueType, creatorUserId: Int, title: String, userIds: Set[Int], isHidden: Boolean, isHistoryShared: Boolean): Future[CreateInternalAck] =
     (processorRegion.ref ? CreateInternal(groupId, typ, creatorUserId, title, userIds.toSeq, isHidden = Some(isHidden), isHistoryShared = Some(isHistoryShared))).mapTo[CreateInternalAck]
 
+  // TODO: REMOVE. I guess it's obsolete
   def makePublic(groupId: Int, description: String): Future[MakePublicAck] =
     (processorRegion.ref ? MakePublic(groupId, Some(description))).mapTo[MakePublicAck]
 

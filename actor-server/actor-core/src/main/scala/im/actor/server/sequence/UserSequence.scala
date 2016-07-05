@@ -6,8 +6,10 @@ import akka.pattern.pipe
 import com.github.benmanes.caffeine.cache.{ Cache, Caffeine }
 import com.google.protobuf.ByteString
 import com.google.protobuf.wrappers.{ Int32Value, StringValue }
+import im.actor.api.rpc.messaging.{ UpdateMessage, UpdateMessageSent }
 import im.actor.api.rpc.sequence.UpdateEmptyUpdate
 import im.actor.server.db.DbExtension
+import im.actor.server.messaging.MessageParsing
 import im.actor.server.model.{ SeqUpdate, UpdateMapping }
 import im.actor.server.persist.{ AuthIdRepo, AuthSessionRepo }
 import im.actor.server.persist.sequence.UserSequenceRepo
@@ -65,7 +67,8 @@ private[sequence] final class UserSequence
   extends Actor
   with ActorLogging
   with Stash
-  with SeqControl {
+  with SeqControl
+  with MessageParsing {
 
   import UserSequence._
   import UserSequenceCommands._
@@ -274,6 +277,14 @@ private[sequence] final class UserSequence
 
   private def applyOptimizations(mapping: UpdateMapping): UpdateMapping = {
     val default = mapping.getDefault
+    //    ??? how to optimize message sending?
+    //    if (default.header == UpdateMessage.header || default.header == UpdateMessageSent.header) {
+    //
+    //
+    //
+    //
+    //
+    //    }
     val customOptimized = authIdsOptFu flatMap {
       case (authId, optFunc) ⇒
         val optimized = optFunc(default)

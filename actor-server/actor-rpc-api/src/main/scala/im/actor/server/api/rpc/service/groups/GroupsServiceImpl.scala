@@ -120,6 +120,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseEditGroupAvatar]] =
     authorized(clientData) { implicit client ⇒
+      // TODO: remove withOwnGroupMember
       val action = withOwnGroupMember(groupOutPeer, client.userId) { fullGroup ⇒
         withFileLocation(fileLocation, AvatarSizeLimit) {
           scaleAvatar(fileLocation.fileId, ThreadLocalSecureRandom.current()) flatMap {
@@ -274,6 +275,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseSeqDate]] =
     authorized(clientData) { implicit client ⇒
+      //todo: move own group validation inside GroupProcessor maybe?
       val action = withOwnGroupMember(groupOutPeer, client.userId) { fullGroup ⇒
         for {
           SeqStateDate(seq, state, date) ← DBIO.from(groupExt.updateTitle(fullGroup.id, client.userId, client.authId, title, randomId))
@@ -438,7 +440,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
   }
 
   override def onFailure: PartialFunction[Throwable, RpcError] = {
-    case GroupErrors.NotAMember         ⇒ CommonRpcErrors.forbidden("User is not a group member.")
+    case GroupErrors.NotAMember         ⇒ CommonRpcErrors.forbidden("Not a group member!")
     case GroupErrors.NotAdmin           ⇒ CommonRpcErrors.forbidden("Only admin can perform this action.")
     case GroupErrors.UserAlreadyAdmin   ⇒ GroupRpcErrors.UserAlreadyAdmin
     case GroupErrors.AboutTooLong       ⇒ GroupRpcErrors.AboutTooLong
