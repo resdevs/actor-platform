@@ -55,6 +55,7 @@ class WebhookHandlerSpec
     def createGroupAndBot() = {
       val groupOutPeer = createGroup("Bot test group", Set(user2.id)).groupPeer
 
+      //TODO: replace with something else.
       whenReady(db.run(persist.GroupBotRepo.findByGroup(groupOutPeer.groupId))) { optBot ⇒
         optBot shouldBe defined
         val bot = optBot.get

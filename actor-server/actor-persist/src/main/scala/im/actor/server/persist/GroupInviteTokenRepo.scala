@@ -15,16 +15,18 @@ final class GroupInviteTokenTable(tag: Tag) extends Table[GroupInviteToken](tag,
 }
 
 object GroupInviteTokenRepo {
-  val groupInviteTokens = TableQuery[GroupInviteTokenTable]
+  private val groupInviteTokens = TableQuery[GroupInviteTokenTable]
+  private val activeTokens = groupInviteTokens.filter(_.revokedAt.isEmpty)
 
   def create(token: GroupInviteToken) =
     groupInviteTokens += token
 
-  val activeTokens = groupInviteTokens.filter(_.revokedAt.isEmpty)
-
+  //used in GroupService
   def find(groupId: Int, userId: Int) =
     activeTokens.filter(t ⇒ t.groupId === groupId && t.creatorId === userId).result
 
+  //TODO: replace with key-value
+  @deprecated("use key-value style", "2016-07-07")
   def findByToken(token: String) =
     activeTokens.filter(_.token === token).result.headOption
 

@@ -7,6 +7,8 @@ import scala.util.control.NoStackTrace
 object GroupErrors {
   final case class GroupNotFound(id: Int) extends EntityNotFound(s"Group $id not found")
 
+  final case class GroupIdAlreadyExists(id: Int) extends Exception with NoStackTrace
+
   object NotAMember extends Exception("Not a group member") with NoStackTrace
 
   case object UserAlreadyJoined extends Exception with NoStackTrace
@@ -16,6 +18,8 @@ object GroupErrors {
   case object UserAlreadyAdmin extends Exception with NoStackTrace
 
   case object NotAdmin extends Exception with NoStackTrace
+
+  case object InvalidTitle extends Exception with NoStackTrace
 
   case object AboutTooLong extends Exception with NoStackTrace
 

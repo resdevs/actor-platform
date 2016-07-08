@@ -23,7 +23,8 @@ final class HiddenGroupsSpec extends BaseAppSuite with ImplicitAuthService with 
     val groupId = 1
 
     whenReady(for {
-      group ← groupExt.createInternal(groupId, GroupType.General, user.id, "hidden", Set.empty, isHidden = true, isHistoryShared = true)
+      group <- //FIXME
+//      group ← groupExt.createInternal(groupId, GroupType.General, user.id, "hidden", Set.empty, isHidden = true, isHistoryShared = true)
       _ ← service.handleSendMessage(ApiOutPeer(ApiPeerType.Group, groupId, group.accessHash), Random.nextLong, ApiTextMessage("Hi there", Vector.empty, None), None, None)
     } yield ()) { _ ⇒
       whenReady(service.handleLoadDialogs(0, Int.MaxValue, Vector.empty)) { resp ⇒

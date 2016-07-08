@@ -174,7 +174,8 @@ object Build extends sbt.Build with Versioning with Releasing with Packaging {
     id = "actor-core",
     base = file("actor-core"),
     settings = defaultSettingsServer ++ SbtActorApi.settings ++ Seq(
-      libraryDependencies ++= Dependencies.core
+      libraryDependencies ++= Dependencies.core,
+      scalacOptions in Compile := (scalacOptions in Compile).value.filterNot(_ == "-Xfatal-warnings")
     )
   )
     .dependsOn(actorCodecs, actorFileAdapter, actorModels, actorPersist, actorRuntime)
@@ -246,7 +247,8 @@ object Build extends sbt.Build with Versioning with Releasing with Packaging {
     id = "actor-rpc-api",
     base = file("actor-rpc-api"),
     settings = defaultSettingsServer ++ Seq(
-      libraryDependencies ++= Dependencies.rpcApi
+      libraryDependencies ++= Dependencies.rpcApi,
+      scalacOptions in Compile := (scalacOptions in Compile).value.filterNot(_ == "-Xfatal-warnings")
     )
   )
     .dependsOn(

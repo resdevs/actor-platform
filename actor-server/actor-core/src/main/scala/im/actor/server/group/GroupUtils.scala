@@ -18,6 +18,7 @@ object GroupUtils {
   import ApiConversions._
   import ImageUtils._
 
+  //TODO: remove
   def getPubgroupStructUnsafe(group: model.Group, senderUserId: Int)(implicit ec: ExecutionContext): DBIOAction[ApiPublicGroup, NoStream, Read with Read] = {
     for {
       membersIds ← persist.GroupUserRepo.findUserIds(group.id)
@@ -29,6 +30,7 @@ object GroupUtils {
     }
   }
 
+  //TODO: remove
   def getPubgroupStructUnsafe(group: model.Group)(implicit clientData: AuthorizedClientData, ec: ExecutionContext): DBIOAction[ApiPublicGroup, NoStream, Read with Read] = {
     getPubgroupStructUnsafe(group, clientData.userId)
   }

@@ -115,6 +115,8 @@ abstract class Processor[S <: ProcessorState[S]]
     case RecoveryCompleted ⇒ onRecoveryCompleted()
     case SaveSnapshotFailure(metadata, cause) ⇒
       log.error(cause, "Failed to save snapshot, metadata: {}", metadata)
+    case SaveSnapshotSuccess(metadata) ⇒
+      log.error("Got save SaveSnapshotSuccess during recovery! Should never happen. Metadata: {}", metadata)
   }
 
   protected def handleCommand: Receive

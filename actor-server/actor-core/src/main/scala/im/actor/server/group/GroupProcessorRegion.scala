@@ -7,7 +7,7 @@ import im.actor.server.group.v2.GroupProcessorV2
 
 object GroupProcessorRegion {
   private def extractEntityId(system: ActorSystem): ShardRegion.ExtractEntityId = {
-    case GroupEnvelopeV2(Some(groupId), command, query) ⇒
+    case GroupEnvelopeV2(groupId, command, query) ⇒
       (
         groupId.toString,
         if (command.isDefined) command else query // payload
@@ -15,7 +15,7 @@ object GroupProcessorRegion {
   }
 
   private def extractShardId(system: ActorSystem): ShardRegion.ExtractShardId = {
-    case GroupEnvelopeV2(Some(groupId), _, _) ⇒ (groupId % 100).toString // TODO: configurable
+    case GroupEnvelopeV2(groupId, _, _) ⇒ (groupId % 100).toString // TODO: configurable
   }
 
   private val typeName = "GroupProcessor"

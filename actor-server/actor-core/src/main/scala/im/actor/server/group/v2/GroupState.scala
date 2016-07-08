@@ -4,6 +4,7 @@ import java.time.Instant
 
 import akka.persistence.SnapshotMetadata
 import im.actor.api.rpc.collections.ApiMapValue
+import im.actor.api.rpc.misc.ApiExtension
 import im.actor.server.cqrs.{ Event, ProcessorState }
 import im.actor.server.file.Avatar
 import im.actor.server.group.GroupType
@@ -25,43 +26,63 @@ private[group] object GroupState {
   def empty(groupId: Int): GroupState =
     GroupState(
       id = groupId,
-      typ = GroupType.General,
-      accessHash = 0L,
+      createdAt = None,
       creatorUserId = 0,
       ownerUserId = 0,
-      createdAt = Instant.now(), //???
-      members = Map.empty,
-      invitedUserIds = Set.empty,
+      exUserIds = Seq.empty,
       title = "",
       about = None,
-      bot = None,
       avatar = None,
-      isHidden = false,
       topic = None,
+      typ = GroupType.General,
+      isHidden = false,
       isHistoryShared = false,
-      extensions = Seq.empty
+      members = Map.empty,
+      invitedUserIds = Set.empty,
+      accessHash = 0L,
+      bot = None,
+
+      //???
+      extensions = Map.empty
     )
 }
 
+//* @param isAdmin   [DEPRECATED] Is current user an admin of a group
+//* @param theme   [DEPRECATED] Theme of group
+//* @param about   [DEPRECATED] About of group
+//* @param creatorUserId   [DEPRECATED] Group creator
+//* @param members   [DEPRECATED] Members of group
+//* @param createDate   [DEPRECATED] Date of creation
+
 //TODO: add membersCount
 private[group] final case class GroupState(
-  id:              Int,
-  typ:             GroupType,
-  accessHash:      Long,
-  creatorUserId:   Int,
-  ownerUserId:     Int,
-  createdAt:       Instant,
-  members:         Map[Int, Member],
-  invitedUserIds:  Set[Int],
+  // creation/ownership
+  id:            Int,
+  createdAt:     Option[Instant], ///!!!
+  creatorUserId: Int, //!!!
+  ownerUserId:   Int,
+  exUserIds:     Seq[Int], //FIXME - populate with user ids on kick, leave
+
+  // group summary info
   title:           String,
   about:           Option[String],
-  bot:             Option[Bot],
   avatar:          Option[Avatar],
   topic:           Option[String],
+  typ:             GroupType,
   isHidden:        Boolean,
   isHistoryShared: Boolean,
-  extensions:      Seq[ApiMapValue]
+
+  // members info
+  members:        Map[Int, Member],
+  invitedUserIds: Set[Int],
+
+  //security and etc.
+  accessHash: Long, //!!
+  bot:        Option[Bot],
+  extensions: Map[Int, Array[Byte]] //or should it be sequence???
 ) extends ProcessorState[GroupState] {
+
+  def memberIds = members.keySet
 
   def isMember(userId: Int): Boolean = members.contains(userId)
 
@@ -73,13 +94,54 @@ private[group] final case class GroupState(
 
   def isAdmin(userId: Int): Boolean = members.get(userId) exists (_.isAdmin)
 
-  //  def canInvitePeople(group: GroupState, clientUserId: Int) =
-  //    isMember(group, clientUserId)
+  def isOwner(userId: Int): Boolean = userId == ownerUserId
+
+  def isExUser(userId: Int): Boolean = exUserIds.contains(userId)
+
+  def canViewMembers(clientUserId: Int) =
+    (typ.isGeneral || typ.isPublic) && isMember(clientUserId)
+
+  def canInvitePeople(clientUserId: Int) = isMember(clientUserId)
 
   def canViewMembers(group: GroupState, userId: Int) =
     (group.typ.isGeneral || group.typ.isPublic) && isMember(userId)
 
+  def isNotCreated = createdAt.isEmpty
+
+  def isCreated = createdAt.nonEmpty
+
   override def updated(e: Event): GroupState = e match {
+    case evt: Created ⇒
+      this.copy(
+        createdAt = Some(evt.ts),
+        creatorUserId = evt.creatorUserId,
+        ownerUserId = evt.creatorUserId,
+        title = evt.title,
+        about = None,
+        avatar = None,
+        topic = None,
+        typ = evt.typ.getOrElse(GroupType.General),
+        isHidden = evt.isHidden getOrElse false,
+        isHistoryShared = evt.isHistoryShared getOrElse false,
+        members = (
+          evt.userIds map { userId ⇒
+            userId →
+              Member(
+                userId,
+                evt.creatorUserId,
+                evt.ts,
+                isAdmin = userId == evt.creatorUserId
+              )
+          }
+        ).toMap,
+        invitedUserIds = evt.userIds.filterNot(_ == evt.creatorUserId).toSet,
+        accessHash = evt.accessHash,
+        bot = None,
+        extensions = (evt.extensions map { //TODO: validate is it right?
+          case ApiExtension(extId, data) ⇒
+            extId → data
+        }).toMap
+      )
     case BotAdded(_, userId, token) ⇒
       this.copy(
         bot = Some(Bot(userId, token))

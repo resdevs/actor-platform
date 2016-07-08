@@ -131,6 +131,10 @@ final case class ActorServerBuilder(defaultConfig: Config = ConfigFactory.empty(
         MigrationNameList.MultiSequence,
         Instant.now.toEpochMilli
       )(conn)
+      MigrationTsActions.insertTimestamp(
+        MigrationNameList.MultiSequence,
+        Instant.now.toEpochMilli
+      )(conn)
 
       system.log.debug("Starting SeqUpdatesExtension")
       SeqUpdatesExtension(system)

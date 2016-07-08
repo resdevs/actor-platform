@@ -107,6 +107,7 @@ trait DeliveryOperations { this: SeqUpdatesExtension ⇒
    * send update to all devices of user with id `userId` and
    * return `SeqState` associated with `authId`
    */
+  //TODO: maybe automatically remove `userId` from `bcastUserIds`
   def broadcastClientUpdate(
     userId:       Int,
     authId:       Long,

@@ -25,6 +25,7 @@ final class WebhooksHttpHandler()(implicit val system: ActorSystem)
   implicit val timeout: Timeout = Timeout(5.seconds)
 
   protected val log = Logging(system, getClass)
+  // we could try to find it in first keyvalue, if not found - in second one.
   protected val integrationTokensKv = ShardakkaExtension(system).simpleKeyValue[Int](KeyValueMappings.IntegrationTokens, IntCodec)
 
   override def routes: Route =

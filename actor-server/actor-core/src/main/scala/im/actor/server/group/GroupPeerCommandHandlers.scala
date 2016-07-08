@@ -65,7 +65,7 @@ trait GroupPeerCommandHandlers extends PeersImplicits {
 
     withMembers { (_, invitedUserIds, _) ⇒
       if (invitedUserIds contains readerUserId) {
-        groupExt.joinAfterFirstRead(groupId, readerUserId, mr.readerAuthId)
+        groupExt.joinGroup(groupId, readerUserId, mr.readerAuthId, None) map (_ ⇒ ())
       } else FastFuture.successful(())
     }
 
