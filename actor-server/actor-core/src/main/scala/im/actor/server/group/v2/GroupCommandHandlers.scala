@@ -124,13 +124,12 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
           }
 
           // send service message to group
-          seqStateDate ← dialogExt.sendMessage(
-            peer = apiGroupPeer,
+          seqStateDate ← dialogExt.sendServerMessage(
+            apiGroupPeer,
             senderUserId = cmd.creatorUserId,
             senderAuthId = cmd.creatorAuthId,
             randomId = cmd.randomId,
-            message = serviceMessage,
-            accessHash = newState.accessHash
+            message = serviceMessage
           )
 
         } yield CreateAck(newState.accessHash).withSeqStateDate(seqStateDate)
@@ -258,17 +257,16 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
           )
 
           // explicitly send service message
-          newSeqState ← dialogExt.sendMessage(
+          seqStateDate ← dialogExt.sendServerMessage(
             apiGroupPeer,
             cmd.inviterUserId,
             cmd.inviterAuthId,
             cmd.randomId,
-            serviceMessage,
-            newState.accessHash
+            serviceMessage
           )
 
-          SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
-        } yield SeqStateDate(seq, state, dateMillis)
+          //          SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
+        } yield seqStateDate
 
         result pipeTo sender()
       }
@@ -361,14 +359,12 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
               deliveryId = s"join_${groupId}_${randomId}"
             )
 
-            //TODO: replace sendMessage with sendFromServer
-            seqStateDate ← dialogExt.sendMessage(
-              peer = apiGroupPeer,
+            seqStateDate ← dialogExt.sendServerMessage(
+              apiGroupPeer,
               senderUserId = cmd.joiningUserId,
               senderAuthId = cmd.joiningUserAuthId,
               randomId = randomId,
-              message = serviceMessage,
-              accessHash = newState.accessHash
+              serviceMessage
             )
           } yield (seqStateDate, memberIds.toVector :+ inviterUserId, randomId)
 
@@ -438,15 +434,14 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
             membersUpdateNew
           )
 
-          seqState ← dialogExt.sendMessage(
+          seqStateDate ← dialogExt.sendServerMessage(
             apiGroupPeer,
             senderUserId = cmd.userId,
             senderAuthId = cmd.authId,
             randomId = cmd.randomId,
-            message = serviceMessage,
-            accessHash = newState.accessHash
+            message = serviceMessage
           )
-        } yield SeqStateDate(seqState.seq, seqState.state, dateMillis)
+        } yield seqStateDate
 
         result pipeTo sender()
       }
@@ -514,15 +509,14 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
             membersUpdateNew
           )
 
-          seqState ← dialogExt.sendMessage(
+          seqStateDate ← dialogExt.sendServerMessage(
             apiGroupPeer,
             senderUserId = cmd.kickerUserId,
             senderAuthId = cmd.kickerAuthId,
             randomId = cmd.randomId,
-            message = serviceMessage,
-            accessHash = newState.accessHash
+            message = serviceMessage
           )
-        } yield SeqStateDate(seqState.seq, seqState.state, dateMillis)
+        } yield seqStateDate
 
         result pipeTo sender()
       }
@@ -552,17 +546,16 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
 
           // new group api updates
           _ ← seqUpdExt.broadcastPeopleUpdate(userIds = memberIds + cmd.clientUserId, updateNew)
-          newSeqState ← dialogExt.sendMessage(
+          seqStateDate ← dialogExt.sendServerMessage(
             apiGroupPeer,
-            cmd.clientUserId,
-            cmd.clientAuthId,
-            cmd.randomId,
-            serviceMessage,
-            newState.accessHash
+            senderUserId = cmd.clientUserId,
+            senderAuthId = cmd.clientAuthId,
+            randomId = cmd.randomId,
+            message = serviceMessage
           )
 
-          SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
-        } yield UpdateAvatarAck(apiAvatar).withSeqStateDate(SeqStateDate(seq, state, dateMillis))
+          //          SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
+        } yield UpdateAvatarAck(apiAvatar).withSeqStateDate(seqStateDate)
 
         result pipeTo sender()
       }
@@ -619,17 +612,16 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
             updateNew,
             pushRules
           )
-          newSeqState ← dialogExt.sendMessage(
+          seqStateDate ← dialogExt.sendServerMessage(
             apiGroupPeer,
-            cmd.clientUserId,
-            cmd.clientAuthId,
-            cmd.randomId,
-            serviceMessage,
-            newState.accessHash
+            senderUserId = cmd.clientUserId,
+            senderAuthId = cmd.clientAuthId,
+            randomId = cmd.randomId,
+            message = serviceMessage
           )
 
-          SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
-        } yield SeqStateDate(seq, state, dateMillis)
+          //          SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
+        } yield seqStateDate
 
         result pipeTo sender()
       }
@@ -680,17 +672,16 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
               updateNew,
               pushRules
             )
-            newSeqState ← dialogExt.sendMessage(
+            seqStateDate ← dialogExt.sendServerMessage(
               apiGroupPeer,
-              cmd.clientUserId,
-              cmd.clientAuthId,
-              cmd.randomId,
-              serviceMessage,
-              newState.accessHash
+              senderUserId = cmd.clientUserId,
+              senderAuthId = cmd.clientAuthId,
+              randomId = cmd.randomId,
+              message = serviceMessage
             )
 
-            SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
-          } yield SeqStateDate(seq, state, dateMillis)
+            //            SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
+          } yield seqStateDate
 
           result pipeTo sender()
         }
@@ -738,17 +729,16 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
               updateNew,
               pushRules
             )
-            newSeqState ← dialogExt.sendMessage(
+            seqStateDate ← dialogExt.sendServerMessage(
               apiGroupPeer,
-              cmd.clientUserId,
-              cmd.clientAuthId,
-              cmd.randomId,
-              serviceMessage,
-              newState.accessHash
+              senderUserId = cmd.clientUserId,
+              senderAuthId = cmd.clientAuthId,
+              randomId = cmd.randomId,
+              message = serviceMessage
             )
 
-            SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
-          } yield SeqStateDate(seq, state, dateMillis)
+            //            SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
+          } yield seqStateDate
 
           result pipeTo sender()
         }
