@@ -29,7 +29,7 @@ private[group] object GroupState {
       createdAt = None,
       creatorUserId = 0,
       ownerUserId = 0,
-      exUserIds = Seq.empty,
+      exUserIds = Set.empty,
       title = "",
       about = None,
       avatar = None,
@@ -61,7 +61,7 @@ private[group] final case class GroupState(
   createdAt:     Option[Instant], ///!!!
   creatorUserId: Int, //!!!
   ownerUserId:   Int,
-  exUserIds:     Seq[Int], //FIXME - populate with user ids on kick, leave
+  exUserIds:     Set[Int],
 
   // group summary info
   title:           String,
@@ -82,7 +82,7 @@ private[group] final case class GroupState(
   extensions: Map[Int, Array[Byte]] //or should it be sequence???
 ) extends ProcessorState[GroupState] {
 
-  def memberIds = members.keySet
+  def memberIds = members.keySet //TODO: Maybe val. immutable anyway
 
   def isMember(userId: Int): Boolean = members.contains(userId)
 
@@ -106,9 +106,9 @@ private[group] final case class GroupState(
   def canViewMembers(group: GroupState, userId: Int) =
     (group.typ.isGeneral || group.typ.isPublic) && isMember(userId)
 
-  def isNotCreated = createdAt.isEmpty
+  def isNotCreated = createdAt.isEmpty //TODO: Maybe val. immutable anyway
 
-  def isCreated = createdAt.nonEmpty
+  def isCreated = createdAt.nonEmpty //TODO: Maybe val. immutable anyway
 
   override def updated(e: Event): GroupState = e match {
     case evt: Created ⇒
@@ -170,15 +170,17 @@ private[group] final case class GroupState(
           )),
         invitedUserIds = invitedUserIds - userId
       )
-    case UserKicked(_, userId, kickerUserId) ⇒
+    case UserKicked(_, userId, _) ⇒
       this.copy(
         members = members - userId,
-        invitedUserIds = invitedUserIds - userId
+        invitedUserIds = invitedUserIds - userId,
+        exUserIds = exUserIds + userId
       )
     case UserLeft(_, userId) ⇒
       this.copy(
         members = members - userId,
-        invitedUserIds = invitedUserIds - userId
+        invitedUserIds = invitedUserIds - userId,
+        exUserIds = exUserIds + userId
       )
     case AvatarUpdated(_, newAvatar) ⇒
       this.copy(avatar = newAvatar)

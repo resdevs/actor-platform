@@ -46,31 +46,33 @@ private[group] final class GroupProcessorV2
 
   protected def handleCommand: Receive = {
     //or move inside of method?
-    // creationHandlers
+    // creation actions
     case c: Create if state.isNotCreated       ⇒ create(c)
     case _: GroupCommand if state.isNotCreated ⇒ Status.Failure(GroupNotFound(groupId))
     case _: Create                             ⇒ sender() ! Status.Failure(GroupIdAlreadyExists(groupId))
 
-    // membersHandlers
+    // members actions
     case i: Invite                             ⇒ invite(i)
     case j: Join                               ⇒ join(j)
+    case l: Leave                              ⇒ leave(l)
+    case k: Kick                               ⇒ kick(k)
 
-    //    case l: Leave => leave(l)
-    //    case k: Kick => kick(k)
-
-    // groupInfoHandlers
+    // group info actions
     case u: UpdateAvatar                       ⇒ updateAvatar(u)
     case u: UpdateTitle                        ⇒ updateTitle(u)
     case u: UpdateTopic                        ⇒ updateTopic(u)
     case u: UpdateAbout                        ⇒ updateAbout(u)
 
-    // adminHandlers
+    // admin actions
     case r: RevokeIntegrationToken             ⇒ revokeIntegrationToken(r)
     case m: MakeUserAdmin                      ⇒ makeUserAdmin(m)
     case t: TransferOwnership                  ⇒ transferOwnership(t)
 
+    // termination actions
     case StopProcessor                         ⇒ context stop self
     case ReceiveTimeout                        ⇒ context.parent ! ShardRegion.Passivate(stopMessage = StopProcessor)
+
+    // dialogs envelopes coming through group.
     case de: DialogEnvelope ⇒
       groupPeerActor forward de.getAllFields.values.head
 

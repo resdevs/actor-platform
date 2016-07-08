@@ -84,15 +84,15 @@ object ACLUtils extends ACLBase with ACLFiles {
   )(implicit system: ActorSystem): Future[Boolean] = {
     import system.dispatcher
     FutureExt
-      .ftraverse(userPeers)(checkUserOutPeer(_, clientAuthId))
-      .map(!_.contains(false)) // TODO: if didn't check - return ASAP
+      .ftraverse(userPeers)(checkUserOutPeer(_, clientAuthId)) // TODO: if didn't check - return ASAP
+      .map(!_.contains(false))
   }
 
   def checkGroupOutPeers(outPeers: Seq[ApiGroupOutPeer])(implicit system: ActorSystem): Future[Boolean] = {
     implicit val ec = system.dispatcher
     FutureExt
-      .ftraverse(outPeers)(checkGroupOutPeer)
-      .map(!_.contains(false)) // TODO: if didn't check - return ASAP
+      .ftraverse(outPeers)(checkGroupOutPeer) // TODO: if didn't check - return ASAP
+      .map(!_.contains(false))
   }
 
   // check access hash for single user out peer

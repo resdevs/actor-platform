@@ -6,14 +6,13 @@ import akka.actor.Status
 import akka.http.scaladsl.util.FastFuture
 import im.actor.api.rpc.groups._
 import im.actor.server.file.{ Avatar, ImageUtils }
-import im.actor.server.group.GroupEvents.{ AboutUpdated, AvatarUpdated, BotAdded, Created, IntegrationTokenRevoked, OwnerChanged, TitleUpdated, TopicUpdated, UserBecameAdmin, UserInvited, UserJoined }
+import im.actor.server.group.GroupEvents.{ AboutUpdated, AvatarUpdated, BotAdded, Created, IntegrationTokenRevoked, OwnerChanged, TitleUpdated, TopicUpdated, UserBecameAdmin, UserInvited, UserJoined, UserKicked, UserLeft }
 import im.actor.server.group.{ GroupErrors, GroupServiceMessages, GroupType }
 import im.actor.server.groupV2.GroupCommandsV2._
 import im.actor.server.model.{ AvatarData, Group }
 import im.actor.server.sequence.{ SeqState, SeqStateDate }
 import akka.pattern.pipe
 import im.actor.api.rpc.Update
-import im.actor.api.rpc.collections.ApiMapValue
 import im.actor.api.rpc.files.ApiAvatar
 import im.actor.api.rpc.users.ApiSex
 import im.actor.concurrent.FutureExt
@@ -22,7 +21,7 @@ import im.actor.server.acl.ACLUtils
 import im.actor.server.dialog.UserAcl
 import im.actor.server.group.GroupErrors._
 import im.actor.server.office.PushTexts
-import im.actor.server.persist.{ AvatarDataRepo, GroupBotRepo, GroupRepo, GroupUserRepo }
+import im.actor.server.persist.{ AvatarDataRepo, GroupBotRepo, GroupInviteTokenRepo, GroupRepo, GroupUserRepo }
 import im.actor.util.ThreadLocalSecureRandom
 import im.actor.util.misc.IdUtils
 
@@ -92,10 +91,10 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
             _ ← GroupRepo.create(
               Group(
                 id = groupId,
-                creatorUserId = state.creatorUserId,
-                accessHash = state.accessHash,
-                title = state.title,
-                isPublic = state.typ == GroupType.Public,
+                creatorUserId = newState.creatorUserId,
+                accessHash = newState.accessHash,
+                title = newState.title,
+                isPublic = newState.typ == GroupType.Public,
                 createdAt = evt.ts,
                 about = None,
                 topic = None
@@ -173,7 +172,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
         val newState = commit(evt)
 
         val dateMillis = evt.ts.toEpochMilli
-        val memberIds = state.memberIds
+        val memberIds = newState.memberIds
         val members = newState.members.values.map(_.asStruct).toVector
 
         // if user ever been in this group - we should push these updates,
@@ -265,7 +264,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
             cmd.inviterAuthId,
             cmd.randomId,
             serviceMessage,
-            state.accessHash
+            newState.accessHash
           )
 
           SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
@@ -378,18 +377,157 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
     }
   }
 
-  // Updates that will be sent to user, when he enters group.
-  // Helps clients that have this group - to refresh it's data.
-  private def refreshGroupUpdates(newState: GroupState): List[Update] = List(
-    UpdateGroupMemberChanged(groupId, isMember = true),
-    UpdateGroupAboutChanged(groupId, newState.about),
-    UpdateGroupAvatarChanged(groupId, newState.avatar),
-    UpdateGroupTopicChanged(groupId, newState.topic),
-    UpdateGroupTitleChanged(groupId, newState.title),
-    UpdateGroupOwnerChanged(groupId, newState.ownerUserId)
-  //    UpdateGroupExtChanged(groupId, newState.extension) //TODO: figure out and fix
-  //          if(bigGroup) UpdateGroupMembersCountChanged(groupId, newState.extension)
-  )
+  protected def leave(cmd: Leave): Unit = {
+    if (state.nonMember(cmd.userId)) {
+      sender() ! notMember
+    } else {
+      persist(UserLeft(Instant.now, cmd.userId)) { evt ⇒
+        val newState = commit(evt)
+
+        val dateMillis = evt.ts.toEpochMilli
+        val members = newState.members.values.map(_.asStruct).toVector
+
+        val updateObsolete = UpdateGroupUserLeaveObsolete(groupId, cmd.userId, dateMillis, cmd.randomId)
+
+        val userUpdatesNew: List[Update] = List(
+          UpdateGroupMemberChanged(groupId, isMember = false),
+          UpdateGroupMembersUpdated(groupId, members = Vector.empty)
+        )
+
+        val membersUpdateNew = UpdateGroupMembersUpdated(groupId, members)
+
+        val serviceMessage = GroupServiceMessages.userLeft(cmd.userId)
+
+        db.run(
+          for {
+            _ ← GroupUserRepo.delete(groupId, cmd.userId)
+            _ ← GroupInviteTokenRepo.revoke(groupId, cmd.userId)
+          } yield ()
+        )
+
+        // оба:
+        // • прочитываем диалог этого чувака им самим
+        //
+        // старый:
+        // пушим клиенту и всем членам группы UpdateGroupUserLeaveObsolete, исключаем текущий клиент для пуша
+        //
+        // новый:
+        // пушим UpdateGroupMemberChanged чуваку, что он перестал быть членом группы, и UpdateGroupMembersChanged с пустым списком
+        // всем остальным членам группы пушим UpdateGroupMembersUpdated без этого чувака
+        // отправляем после ухода сервисное сообщение
+        val result: Future[SeqStateDate] = for {
+          _ ← dialogExt.messageRead(apiGroupPeer, cmd.userId, 0L, dateMillis)
+
+          // old group api update
+          obsoleteSeqState ← seqUpdExt.broadcastClientUpdate(
+            userId = cmd.userId,
+            authId = cmd.authId,
+            bcastUserIds = newState.memberIds + cmd.userId, // push this to other user's devices too
+            update = updateObsolete,
+            pushRules = seqUpdExt.pushRules(isFat = false, Some(PushTexts.Left), Seq(cmd.authId))
+          )
+
+          // new group api updates
+          _ ← FutureExt.ftraverse(userUpdatesNew) { update ⇒
+            seqUpdExt.deliverUserUpdate(userId = cmd.userId, update)
+          }
+
+          // push updated members list to all group members
+          _ ← seqUpdExt.broadcastPeopleUpdate(
+            newState.memberIds,
+            membersUpdateNew
+          )
+
+          seqState ← dialogExt.sendMessage(
+            apiGroupPeer,
+            senderUserId = cmd.userId,
+            senderAuthId = cmd.authId,
+            randomId = cmd.randomId,
+            message = serviceMessage,
+            accessHash = newState.accessHash
+          )
+        } yield SeqStateDate(seqState.seq, seqState.state, dateMillis)
+
+        result pipeTo sender()
+      }
+    }
+  }
+
+  protected def kick(cmd: Kick): Unit = {
+    if (state.nonMember(cmd.kickerUserId) || state.nonMember(cmd.kickedUserId)) {
+      sender() ! notMember
+    } else {
+      persist(UserKicked(Instant.now, cmd.kickedUserId, cmd.kickerUserId)) { evt ⇒
+        val newState = commit(evt)
+
+        val dateMillis = evt.ts.toEpochMilli
+        val members = newState.members.values.map(_.asStruct).toVector
+
+        val updateObsolete = UpdateGroupUserKickObsolete(groupId, cmd.kickedUserId, cmd.kickerUserId, dateMillis, cmd.randomId)
+
+        val kickedUserUpdatesNew: List[Update] = List(
+          UpdateGroupMemberChanged(groupId, isMember = false),
+          UpdateGroupMembersUpdated(groupId, members = Vector.empty)
+        )
+
+        val membersUpdateNew = UpdateGroupMembersUpdated(groupId, members)
+
+        val serviceMessage = GroupServiceMessages.userKicked(cmd.kickedUserId)
+
+        db.run(
+          for {
+            _ ← GroupUserRepo.delete(groupId, cmd.kickedUserId)
+            _ ← GroupInviteTokenRepo.revoke(groupId, cmd.kickedUserId)
+          } yield ()
+        )
+
+        // оба:
+        // • прочитываем диалог этого чувака им самим
+        //
+        // старый:
+        // пушим всем членам группы и кикнутому UpdateGroupUserKickObsolete, исключаем клиент того кто кикнул из пуша
+        //
+        // новый:
+        // пушим UpdateGroupMemberChanged чуваку, что он перестал быть членом группы, и UpdateGroupMembersChanged с пустым списком
+        // всем остальным членам группы пушим UpdateGroupMembersUpdated без этого чувака
+        // отправляем после ухода сервисное сообщение
+        val result: Future[SeqStateDate] = for {
+          _ ← dialogExt.messageRead(apiGroupPeer, cmd.kickedUserId, 0L, dateMillis)
+
+          // old group api update
+          obsoleteSeqState ← seqUpdExt.broadcastClientUpdate(
+            userId = cmd.kickerUserId,
+            authId = cmd.kickerAuthId,
+            bcastUserIds = newState.memberIds,
+            update = updateObsolete,
+            pushRules = seqUpdExt.pushRules(isFat = false, Some(PushTexts.Kicked), Seq(cmd.kickerAuthId))
+          )
+
+          // new group api updates
+          _ ← FutureExt.ftraverse(kickedUserUpdatesNew) { update ⇒
+            seqUpdExt.deliverUserUpdate(userId = cmd.kickedUserId, update)
+          }
+
+          // push updated members list to all group members. Don't push to kicked user!
+          _ ← seqUpdExt.broadcastPeopleUpdate(
+            newState.memberIds,
+            membersUpdateNew
+          )
+
+          seqState ← dialogExt.sendMessage(
+            apiGroupPeer,
+            senderUserId = cmd.kickerUserId,
+            senderAuthId = cmd.kickerAuthId,
+            randomId = cmd.randomId,
+            message = serviceMessage,
+            accessHash = newState.accessHash
+          )
+        } yield SeqStateDate(seqState.seq, seqState.state, dateMillis)
+
+        result pipeTo sender()
+      }
+    }
+  }
 
   protected def updateAvatar(cmd: UpdateAvatar): Unit = {
     if (state.nonMember(cmd.clientUserId)) {
@@ -713,6 +851,19 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
       }
     }
   }
+
+  // Updates that will be sent to user, when he enters group.
+  // Helps clients that have this group to refresh it's data.
+  private def refreshGroupUpdates(newState: GroupState): List[Update] = List(
+    UpdateGroupMemberChanged(groupId, isMember = true),
+    UpdateGroupAboutChanged(groupId, newState.about),
+    UpdateGroupAvatarChanged(groupId, newState.avatar),
+    UpdateGroupTopicChanged(groupId, newState.topic),
+    UpdateGroupTitleChanged(groupId, newState.title),
+    UpdateGroupOwnerChanged(groupId, newState.ownerUserId)
+  //    UpdateGroupExtChanged(groupId, newState.extension) //TODO: figure out and fix
+  //          if(bigGroup) UpdateGroupMembersCountChanged(groupId, newState.extension)
+  )
 
   private def trimToEmpty(s: Option[String]): Option[String] = s map (_.trim) filter (_.nonEmpty)
 
