@@ -378,6 +378,7 @@ object Build extends sbt.Build with Versioning with Releasing with Packaging {
     settings = defaultSettingsServer ++ Testing.settings ++ Seq(
       libraryDependencies ++= Dependencies.tests,
       compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
+      scalacOptions in Compile := (scalacOptions in Compile).value.filterNot(_ == "-Xfatal-warnings"),
       executeTests in Test <<= (executeTests in Test, executeTests in MultiJvm) map {
         case (testResults, multiNodeResults)  =>
           val overall =

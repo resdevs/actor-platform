@@ -1,13 +1,11 @@
-package im.actor.server.group.v2
+package im.actor.server.group
 
 import java.time.Instant
 
 import akka.persistence.SnapshotMetadata
-import im.actor.api.rpc.collections.ApiMapValue
 import im.actor.api.rpc.misc.ApiExtension
 import im.actor.server.cqrs.{ Event, ProcessorState }
 import im.actor.server.file.Avatar
-import im.actor.server.group.GroupType
 import im.actor.server.group.GroupEvents._
 
 private[group] final case class Member(

@@ -29,8 +29,3 @@ object GroupErrors {
 
   case object BlockedByUser extends Exception with NoStackTrace
 }
-
-object GroupOffice {
-  def persistenceIdFor(groupId: Int): String = s"Group-${groupId}"
-}
-

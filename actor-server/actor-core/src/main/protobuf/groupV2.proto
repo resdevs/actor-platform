@@ -1,8 +1,9 @@
 syntax = "proto3";
 
-package im.actor.server;
+package im.actor.server.group;
 
 option (scalapb.options) = {
+    flat_package: true
     import: "im.actor.server.api.TypeMappers._"
     import: "scala.collection.JavaConversions._"
     primitive_wrappers: true
@@ -15,51 +16,53 @@ import "scalapb/scalapb.proto";
 import "google/protobuf/wrappers.proto";
 import "file.proto";
 import "sequence.proto";
-//import "dialog.proto";
+import "dialog.proto";
 
 //find usages and check it's okay 0,1,2
-enum GroupTypeV2 {
-    General1 = 0;
-    Public1 = 1;
-    Channel1 = 2;
-}
+//enum GroupTypeV2 {
+//    General1 = 0;
+//    Public1 = 1;
+//    Channel1 = 2;
+//}
 
-message GroupEnvelopeV2 {
+message GroupEnvelope {
     int32 group_id = 1;
     oneof command {
-        GroupCommandsV2.Create create = 2;
-        GroupCommandsV2.Join join = 3;
-        GroupCommandsV2.Invite invite = 4;
-        GroupCommandsV2.Leave leave = 5;
-        GroupCommandsV2.Kick kick = 6;
-        GroupCommandsV2.UpdateAvatar update_avatar = 7;
-        GroupCommandsV2.UpdateTitle  update_title  = 8;
-        GroupCommandsV2.UpdateTopic  update_topic  = 9;
-        GroupCommandsV2.UpdateAbout  update_about  = 10;
-//        GroupCommandsV2.MakePublic make_public = 11;
-        GroupCommandsV2.RevokeIntegrationToken revoke_token = 12;
-        GroupCommandsV2.MakeUserAdmin make_user_admin = 13;
-        GroupCommandsV2.TransferOwnership transfer_ownership = 14;
+        GroupCommands.Create create = 2;
+        GroupCommands.Join join = 3;
+        GroupCommands.Invite invite = 4;
+        GroupCommands.Leave leave = 5;
+        GroupCommands.Kick kick = 6;
+        GroupCommands.UpdateAvatar update_avatar = 7;
+        GroupCommands.UpdateTitle  update_title  = 8;
+        GroupCommands.UpdateTopic  update_topic  = 9;
+        GroupCommands.UpdateAbout  update_about  = 10;
+//        GroupCommands.MakePublic make_public = 11;
+        GroupCommands.RevokeIntegrationToken revoke_token = 12;
+        GroupCommands.MakeUserAdmin make_user_admin = 13;
+        GroupCommands.TransferOwnership transfer_ownership = 14;
     }
     oneof query {
-        GroupQueriesV2.GetAccessHash get_access_hash = 15;
-        GroupQueriesV2.GetTitle get_title = 16;
-        GroupQueriesV2.GetIntegrationToken get_integration_token = 17;
-        GroupQueriesV2.GetMembers get_members = 18;
-        GroupQueriesV2.LoadMembers load_members = 19;
-        GroupQueriesV2.IsPublic is_public = 20;
-        GroupQueriesV2.IsHistoryShared is_history_shared = 21;
-        GroupQueriesV2.GetApiStruct get_api_struct = 22;
-        GroupQueriesV2.GetApiFullStruct get_api_full_struct = 23;
-        GroupQueriesV2.CheckAccessHash check_access_hash = 24;
+        GroupQueries.GetAccessHash get_access_hash = 15;
+        GroupQueries.GetTitle get_title = 16;
+        GroupQueries.GetIntegrationToken get_integration_token = 17;
+        GroupQueries.GetMembers get_members = 18;
+        GroupQueries.LoadMembers load_members = 19;
+        GroupQueries.IsPublic is_public = 20;
+        GroupQueries.IsHistoryShared is_history_shared = 21;
+        GroupQueries.GetApiStruct get_api_struct = 22;
+        GroupQueries.GetApiFullStruct get_api_full_struct = 23;
+        GroupQueries.CheckAccessHash check_access_hash = 24;
     }
+    DialogEnvelope dialog_envelope = 25;
 }
 
-message GroupCommandsV2 {
+message GroupCommands {
     message Create {
         option (scalapb.message).extends = "GroupCommand";
 
-        GroupTypeV2 typ = 1;
+//        GroupTypeV2 typ = 1;
+        int32 typ = 1;
         int32 creator_user_id = 2;
         int64 creator_auth_id = 3;
         string title = 4;
@@ -78,7 +81,7 @@ message GroupCommandsV2 {
         int32 joining_user_id = 1;
         int64 joining_user_auth_id = 2;
         google.protobuf.Int32Value inviting_user_id = 3;
-        bool is_v2 = 4;
+        bool is_v2 = 4; //TODO: remove
     }
 
     message Invite {
@@ -88,7 +91,7 @@ message GroupCommandsV2 {
         int32 inviter_user_id = 2;
         int64 inviter_auth_id = 3;
         int64 random_id = 4;
-        bool is_v2 = 5;
+        bool is_v2 = 5; //TODO: remove
     }
 
     message Kick {
@@ -115,7 +118,7 @@ message GroupCommandsV2 {
         int64 client_auth_id = 2;
         Avatar avatar = 3;
         int64 random_id = 4;
-        bool is_v2 = 5;
+        bool is_v2 = 5; //TODO: remove
     }
 
     message UpdateAvatarAck {
@@ -130,7 +133,7 @@ message GroupCommandsV2 {
         int64 client_auth_id = 2;
         string title = 3;
         int64 random_id = 4;
-        bool is_v2 = 5;
+        bool is_v2 = 5; //TODO: remove
     }
 //
 //    message MakePublic {
@@ -149,7 +152,7 @@ message GroupCommandsV2 {
         int64 client_auth_id = 2;
         google.protobuf.StringValue topic = 3;
         int64 random_id = 4;
-        bool is_v2 = 5;
+        bool is_v2 = 5; //TODO: remove
     }
 
     message UpdateAbout {
@@ -159,7 +162,7 @@ message GroupCommandsV2 {
         int64 client_auth_id = 2;
         google.protobuf.StringValue about = 3;
         int64 random_id = 4;
-        bool is_v2 = 5;
+        bool is_v2 = 5; //TODO: remove
     }
 
     message MakeUserAdmin {
@@ -168,7 +171,7 @@ message GroupCommandsV2 {
         int32 client_user_id = 1;
         int64 client_auth_id = 2;
         int32 candidate_user_id = 3;
-        bool is_v2 = 4;
+        bool is_v2 = 4; //TODO: remove
     }
 
     message RevokeIntegrationToken {
@@ -190,7 +193,7 @@ message GroupCommandsV2 {
     }
 }
 
-message GroupQueriesV2 {
+message GroupQueries {
     message GetIntegrationToken {
         option (scalapb.message).extends = "GroupQuery";
 
@@ -286,116 +289,3 @@ message GroupQueriesV2 {
         google.protobuf.BytesValue offset = 2;// should it be Option[Array[Byte]]
     }
 }
-
-//message GroupEvents {
-//    message Created {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 10 [(scalapb.field).type = "java.time.Instant"];
-//        required int32 group_id = 1;
-//        optional GroupType typ = 5 [default = General];
-//        required int32 creator_user_id = 2;
-//        required int64 access_hash = 3;
-//        required string title = 4;
-//        repeated int32 user_ids = 6;
-//        optional bool is_hidden = 8;
-//        optional bool is_history_shared = 9;
-//        repeated bytes extensions = 7  [(scalapb.field).type = "im.actor.api.rpc.misc.ApiExtension"];
-//    }
-//
-//    message UserInvited {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 3 [(scalapb.field).type = "java.time.Instant"];
-//        required int32 user_id = 1;
-//        required int32 inviter_user_id = 2;
-//    }
-//
-//    message UserJoined {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 3 [(scalapb.field).type = "java.time.Instant"];
-//        required int32 user_id = 1;
-//        required int32 inviter_user_id = 2;
-//    }
-//
-//    message UserKicked {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 3 [(scalapb.field).type = "java.time.Instant"];
-//        required int32 user_id = 1;
-//        required int32 kicker_user_id = 2;
-//    }
-//
-//    message UserLeft {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 2 [(scalapb.field).type = "java.time.Instant"];
-//        required int32 user_id = 1;
-//    }
-//
-//    message BotAdded {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 3 [(scalapb.field).type = "java.time.Instant"];
-//        required int32 user_id = 1;
-//        required string token = 2;
-//    }
-//
-//    message AvatarUpdated {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 2 [(scalapb.field).type = "java.time.Instant"];
-//        optional Avatar avatar = 1;
-//    }
-//
-//    message TitleUpdated {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 2 [(scalapb.field).type = "java.time.Instant"];
-//        required string title = 1;
-//    }
-//
-//    message BecamePublic {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 1 [(scalapb.field).type = "java.time.Instant"];
-//    }
-//
-//    message AboutUpdated {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 2 [(scalapb.field).type = "java.time.Instant"];
-//        optional string description = 1;
-//    }
-//
-//    message TopicUpdated {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 2 [(scalapb.field).type = "java.time.Instant"];
-//        optional string topic = 1;
-//    }
-//
-//    message UserBecameAdmin {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 3 [(scalapb.field).type = "java.time.Instant"];
-//        required int32 user_id = 1;
-//        required int32 promoter_user_id = 2;
-//    }
-//
-//    message IntegrationTokenRevoked {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 2 [(scalapb.field).type = "java.time.Instant"];
-//        required string token = 1;
-//    }
-//
-//    message OwnerChanged {
-//        option (scalapb.message).extends = "im.actor.server.group.GroupEvent";
-//
-//        required int64 ts = 1 [(scalapb.field).type = "java.time.Instant"];
-//        required int32 user_id = 2;
-//    }
-//}
-//

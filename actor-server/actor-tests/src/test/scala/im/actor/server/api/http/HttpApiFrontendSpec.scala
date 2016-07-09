@@ -317,7 +317,7 @@ final class HttpApiFrontendSpec
       val avatarData = Files.readAllBytes(Paths.get(getClass.getResource("/valid-avatar.jpg").toURI))
       val fileLocation = whenReady(db.run(fsAdapter.uploadFile(UnsafeFileName("avatar"), avatarData)))(identity)
 
-      whenReady(db.run(ImageUtils.scaleAvatar(fileLocation.fileId, ThreadLocalSecureRandom.current()))) { result ⇒
+      whenReady(db.run(ImageUtils.scaleAvatar(fileLocation.fileId))) { result ⇒
         result should matchPattern { case Right(_) ⇒ }
         val avatar = ImageUtils.getAvatarData(im.actor.server.model.AvatarData.OfGroup, groupOutPeer.groupId, result.right.toOption.get)
         whenReady(db.run(persist.AvatarDataRepo.createOrUpdate(avatar)))(_ ⇒ ())
@@ -355,7 +355,7 @@ final class HttpApiFrontendSpec
     def groupInvitesAvatars2() = {
       val avatarData = Files.readAllBytes(Paths.get(getClass.getResource("/valid-avatar.jpg").toURI))
       val fileLocation = whenReady(db.run(fsAdapter.uploadFile(UnsafeFileName("avatar"), avatarData)))(identity)
-      whenReady(db.run(ImageUtils.scaleAvatar(fileLocation.fileId, ThreadLocalSecureRandom.current()))) { result ⇒
+      whenReady(db.run(ImageUtils.scaleAvatar(fileLocation.fileId))) { result ⇒
         result should matchPattern { case Right(_) ⇒ }
         val avatar =
           ImageUtils.getAvatarData(im.actor.server.model.AvatarData.OfGroup, groupOutPeer.groupId, result.right.toOption.get)

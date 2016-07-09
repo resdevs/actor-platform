@@ -1,15 +1,11 @@
-package im.actor.server.group.v2
-
-import java.time.Instant
+package im.actor.server.group
 
 import akka.actor.ActorSystem
 import akka.util.Timeout
-import com.google.protobuf.wrappers.{ Int32Value, Int64Value, StringValue }
+import com.google.protobuf.wrappers.Int32Value
 import im.actor.server.KeyValueMappings
 import im.actor.server.db.DbExtension
-import im.actor.server.group.GroupExtension
-import im.actor.storage.{ Connector, SimpleStorage }
-import org.slf4j.LoggerFactory
+import im.actor.storage.SimpleStorage
 import shardakka.{ IntCodec, ShardakkaExtension }
 
 import scala.concurrent.Future

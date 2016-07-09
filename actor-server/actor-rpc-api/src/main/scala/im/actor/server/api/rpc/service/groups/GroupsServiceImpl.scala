@@ -115,6 +115,8 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
       }
     }
 
+  case object NoSeqStateDate extends RuntimeException("No SeqStateDate in response from group found")
+
   // TODO: rewrite from DBIO to Future, and add access hash check
   override def doHandleEditGroupAvatar(
     groupPeer:     ApiGroupOutPeer,
@@ -125,10 +127,11 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
   ): Future[HandlerResult[ResponseEditGroupAvatar]] =
     authorized(clientData) { implicit client ⇒
       val action = withFileLocation(fileLocation, AvatarSizeLimit) {
-        scaleAvatar(fileLocation.fileId, ThreadLocalSecureRandom.current()) flatMap {
+        scaleAvatar(fileLocation.fileId) flatMap {
           case Right(avatar) ⇒
             for {
-              UpdateAvatarAck(avatar, SeqStateDate(seq, state, date)) ← DBIO.from(groupExt.updateAvatar(groupPeer.groupId, client.userId, client.authId, Some(avatar), randomId))
+              UpdateAvatarAck(avatar, seqStateDate) ← DBIO.from(groupExt.updateAvatar(groupPeer.groupId, client.userId, client.authId, Some(avatar), randomId))
+              SeqStateDate(seq, state, date) = seqStateDate.getOrElse(throw NoSeqStateDate)
             } yield Ok(ResponseEditGroupAvatar(
               avatar.get,
               seq,
@@ -151,13 +154,14 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
   ): Future[HandlerResult[ResponseSeqDate]] =
     authorized(clientData) { implicit client ⇒
       for {
-        UpdateAvatarAck(avatar, SeqStateDate(seq, state, date)) ← groupExt.updateAvatar(
+        UpdateAvatarAck(avatar, seqStateDate) ← groupExt.updateAvatar(
           groupPeer.groupId,
           client.userId,
           client.authId,
           avatarOpt = None,
           randomId
         )
+        SeqStateDate(seq, state, date) = seqStateDate.getOrElse(throw NoSeqStateDate)
       } yield Ok(ResponseSeqDate(
         seq,
         state.toByteArray,
@@ -218,7 +222,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
         } getOrElse GroupType.General
 
         for {
-          res ← groupExt.create(
+          CreateAck(_, seqStateDate) ← groupExt.create(
             groupId,
             client.userId,
             client.authId,
@@ -227,12 +231,13 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
             userIds = users.map(_.userId).toSet,
             typ
           )
+          SeqStateDate(seq, state, _) = seqStateDate.getOrElse(throw NoSeqStateDate)
           group ← groupExt.getApiStruct(groupId, client.userId)
           memberIds = GroupUtils.getUserIds(group)
           (apiUsers, apiPeers) ← usersOrPeers(memberIds.toVector, stripEntities)
         } yield Ok(ResponseCreateGroup(
-          seq = res.seqstate.seq,
-          state = res.seqstate.state.toByteArray,
+          seq = seq,
+          state = state.toByteArray,
           group = group,
           users = apiUsers,
           userPeers = apiPeers
@@ -416,7 +421,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
         val groupId = nextIntId(ThreadLocalSecureRandom.current())
         val userIds = users.map(_.userId).toSet
         for {
-          res ← groupExt.create(
+          CreateAck(accessHash, seqStateDate) ← groupExt.create(
             groupId,
             client.userId,
             client.authId,
@@ -424,12 +429,13 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
             randomId,
             userIds
           )
+          SeqStateDate(seq, state, date) = seqStateDate.getOrElse(throw NoSeqStateDate)
         } yield Ok(ResponseCreateGroupObsolete(
-          groupPeer = ApiGroupOutPeer(groupId, res.accessHash),
-          seq = res.seqstate.seq,
-          state = res.seqstate.state.toByteArray,
+          groupPeer = ApiGroupOutPeer(groupId, accessHash),
+          seq = seq,
+          state = state.toByteArray,
           users = (userIds + client.userId).toVector,
-          date = res.date
+          date = date
         ))
       }
     }
