@@ -11,6 +11,9 @@ object Optimization {
   type Func = SerializedUpdate ⇒ SerializedUpdate
 
   // это должна быть функция, которая работает с старыми клиентами, и все новые апдейты изымает
+
+//  val OldestClientOp: Func = {}
+
   val EmptyFunc: Func = identity[SerializedUpdate]
 
   private val emptyUpdate = SerializedUpdate(

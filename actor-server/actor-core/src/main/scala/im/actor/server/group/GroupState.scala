@@ -80,9 +80,9 @@ private[group] final case class GroupState(
   extensions: Map[Int, Array[Byte]] //or should it be sequence???
 ) extends ProcessorState[GroupState] {
 
-  def memberIds = members.keySet //TODO: Maybe val. immutable anyway
+  def memberIds = members.keySet //TODO: Maybe lazy val. immutable anyway
 
-  def membersCount = members.size //TODO: Maybe val. immutable anyway
+  def membersCount = members.size //TODO: Maybe lazy val. immutable anyway
 
   def isMember(userId: Int): Boolean = members.contains(userId)
 

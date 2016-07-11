@@ -66,7 +66,7 @@ object ACLUtils extends ACLBase with ACLFiles {
       case ApiPeerType.Group ⇒
         checkGroupOutPeerInternal(outPeer.id, outPeer.accessHash)
       case ApiPeerType.Private ⇒
-        checkUserOutPeerInternal(outPeer.id, clientAuthId, outPeer.accessHash)
+        checkUserOutPeerInternal(outPeer.id, outPeer.accessHash, clientAuthId)
     }
   }
 

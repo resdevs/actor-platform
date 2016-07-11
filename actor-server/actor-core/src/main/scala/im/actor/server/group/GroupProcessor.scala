@@ -118,7 +118,7 @@ private[group] final class GroupProcessor
   protected def handleCommand: Receive = logReceive orElse {
     //or move inside of method?
     // creation actions
-    case c: Create ⇒
+    case c: Create if state.isNotCreated ⇒
       println("============= wea re here")
       create(c)
     case _: Create ⇒
@@ -163,7 +163,7 @@ private[group] final class GroupProcessor
 
   protected def handleQuery: PartialFunction[Any, Future[Any]] = {
     case _: GroupQuery if state.isNotCreated ⇒
-      println("=============== we are in failure in handleQuery")
+      println("=============== Group query, GROUP IS NOT CREATED!!!")
       FastFuture.failed(GroupNotFound(groupId))
     case GetAccessHash()                          ⇒ getAccessHash
     case GetTitle()                               ⇒ getTitle
