@@ -21,9 +21,9 @@ private[group] final case class Bot(
 )
 
 private[group] object GroupState {
-  def empty(groupId: Int): GroupState =
+  def empty: GroupState =
     GroupState(
-      id = groupId,
+      id = 0,
       createdAt = None,
       creatorUserId = 0,
       ownerUserId = 0,
@@ -82,6 +82,8 @@ private[group] final case class GroupState(
 
   def memberIds = members.keySet //TODO: Maybe val. immutable anyway
 
+  def membersCount = members.size //TODO: Maybe val. immutable anyway
+
   def isMember(userId: Int): Boolean = members.contains(userId)
 
   def nonMember(userId: Int): Boolean = !isMember(userId)
@@ -111,6 +113,7 @@ private[group] final case class GroupState(
   override def updated(e: Event): GroupState = e match {
     case evt: Created ⇒
       this.copy(
+        id = evt.groupId,
         createdAt = Some(evt.ts),
         creatorUserId = evt.creatorUserId,
         ownerUserId = evt.creatorUserId,

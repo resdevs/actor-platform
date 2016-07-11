@@ -5,13 +5,21 @@ import akka.cluster.sharding.{ ClusterSharding, ClusterShardingSettings, ShardRe
 
 object GroupProcessorRegion {
   private def extractEntityId(system: ActorSystem): ShardRegion.ExtractEntityId = {
-    case GroupEnvelope(groupId, command, query, dialogEnvelope) ⇒
+    case GroupEnvelope(groupId, Some(dialogEnvelope), _, _) ⇒
+      (
+        groupId.toString,
+        dialogEnvelope
+      )
+    case env @ GroupEnvelope(groupId, _, command, query) ⇒
+      //example for command
       (
         groupId.toString,
         // payload
-        if (command.isDefined) command
-        else if (query.isDefined) query
-        else dialogEnvelope
+        if (query.isDefined) {
+          env.getField(GroupEnvelope.descriptor.findFieldByNumber(query.number))
+        } else {
+          env.getField(GroupEnvelope.descriptor.findFieldByNumber(command.number))
+        }
       )
   }
 

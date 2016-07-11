@@ -106,33 +106,48 @@ private[group] final class GroupProcessor
 
   context.setReceiveTimeout(5.hours)
 
-  protected def handleCommand: Receive = {
+  val logReceive = new PartialFunction[Any, Unit] {
+    def isDefinedAt(x: Any): Boolean = {
+      println(s"============got message: ${x},  of type: ${x.getClass.getName}")
+      println(s"============ state is: ${state}")
+      false
+    }
+    def apply(v1: Any): Unit = throw new RuntimeException("Should not be here!")
+  }
+
+  protected def handleCommand: Receive = logReceive orElse {
     //or move inside of method?
     // creation actions
-    case c: Create if state.isNotCreated       ⇒ create(c)
-    case _: GroupCommand if state.isNotCreated ⇒ Status.Failure(GroupNotFound(groupId))
-    case _: Create                             ⇒ sender() ! Status.Failure(GroupIdAlreadyExists(groupId))
+    case c: Create ⇒
+      println("============= wea re here")
+      create(c)
+    case _: Create ⇒
+      println("============= failure in create!")
+      sender() ! Status.Failure(GroupIdAlreadyExists(groupId))
+    case _: GroupCommand if state.isNotCreated ⇒
+      println("============= failure ")
+      Status.Failure(GroupNotFound(groupId))
 
     // members actions
-    case i: Invite                             ⇒ invite(i)
-    case j: Join                               ⇒ join(j)
-    case l: Leave                              ⇒ leave(l)
-    case k: Kick                               ⇒ kick(k)
+    case i: Invite                 ⇒ invite(i)
+    case j: Join                   ⇒ join(j)
+    case l: Leave                  ⇒ leave(l)
+    case k: Kick                   ⇒ kick(k)
 
     // group info actions
-    case u: UpdateAvatar                       ⇒ updateAvatar(u)
-    case u: UpdateTitle                        ⇒ updateTitle(u)
-    case u: UpdateTopic                        ⇒ updateTopic(u)
-    case u: UpdateAbout                        ⇒ updateAbout(u)
+    case u: UpdateAvatar           ⇒ updateAvatar(u)
+    case u: UpdateTitle            ⇒ updateTitle(u)
+    case u: UpdateTopic            ⇒ updateTopic(u)
+    case u: UpdateAbout            ⇒ updateAbout(u)
 
     // admin actions
-    case r: RevokeIntegrationToken             ⇒ revokeIntegrationToken(r)
-    case m: MakeUserAdmin                      ⇒ makeUserAdmin(m)
-    case t: TransferOwnership                  ⇒ transferOwnership(t)
+    case r: RevokeIntegrationToken ⇒ revokeIntegrationToken(r)
+    case m: MakeUserAdmin          ⇒ makeUserAdmin(m)
+    case t: TransferOwnership      ⇒ transferOwnership(t)
 
     // termination actions
-    case StopProcessor                         ⇒ context stop self
-    case ReceiveTimeout                        ⇒ context.parent ! ShardRegion.Passivate(stopMessage = StopProcessor)
+    case StopProcessor             ⇒ context stop self
+    case ReceiveTimeout            ⇒ context.parent ! ShardRegion.Passivate(stopMessage = StopProcessor)
 
     // dialogs envelopes coming through group.
     case de: DialogEnvelope ⇒
@@ -147,7 +162,9 @@ private[group] final class GroupProcessor
   }
 
   protected def handleQuery: PartialFunction[Any, Future[Any]] = {
-    case query if state.isNotCreated              ⇒ FastFuture.failed(GroupNotFound(groupId))
+    case _: GroupQuery if state.isNotCreated ⇒
+      println("=============== we are in failure in handleQuery")
+      FastFuture.failed(GroupNotFound(groupId))
     case GetAccessHash()                          ⇒ getAccessHash
     case GetTitle()                               ⇒ getTitle
     case GetIntegrationToken(optClient)           ⇒ getIntegrationToken(optClient)
@@ -158,11 +175,14 @@ private[group] final class GroupProcessor
     case GetApiStruct(clientUserId)               ⇒ getApiStruct(clientUserId)
     case GetApiFullStruct(clientUserId)           ⇒ getApiFullStruct(clientUserId)
     case CheckAccessHash(accessHash)              ⇒ checkAccessHash(accessHash)
+    case unhandled ⇒
+      println(s"caught unhandled message: ${unhandled}")
+      FastFuture.failed(new RuntimeException("something fucked up!"))
   }
 
   def persistenceId: String = GroupProcessor.persistenceIdFor(groupId)
 
-  protected def getInitialState: GroupState = GroupState.empty(groupId)
+  protected def getInitialState: GroupState = GroupState.empty
 
   override protected def onRecoveryCompleted(): Unit = {
     super.onRecoveryCompleted()

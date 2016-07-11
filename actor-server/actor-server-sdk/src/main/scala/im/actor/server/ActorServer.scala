@@ -127,12 +127,14 @@ final case class ActorServerBuilder(defaultConfig: Config = ConfigFactory.empty(
       FixUserSequenceMigrator.migrate()
 
       system.log.debug("Writing migration timestamps")
+      // multi sequence introduced
       MigrationTsActions.insertTimestamp(
         MigrationNameList.MultiSequence,
         Instant.now.toEpochMilli
       )(conn)
+      // group v2 api introduced
       MigrationTsActions.insertTimestamp(
-        MigrationNameList.MultiSequence,
+        MigrationNameList.GroupsV2,
         Instant.now.toEpochMilli
       )(conn)
 

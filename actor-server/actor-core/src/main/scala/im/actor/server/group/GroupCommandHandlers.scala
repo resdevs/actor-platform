@@ -35,11 +35,14 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
   private val notAdmin = Status.Failure(NotAdmin)
 
   protected def create(cmd: Create): Unit = {
+    println(s"=========== in create, Group id: ${groupId}")
     if (!isValidTitle(cmd.title)) {
+      println(s"================ title is invalid! title: [${cmd.title}]")
       sender() ! Status.Failure(InvalidTitle)
     } else {
       val rng = ThreadLocalSecureRandom.current()
       val accessHash = ACLUtils.randomLong(rng)
+      val createdAt = Instant.now
 
       // exclude ids of users, who blocked group creator
       val resolvedUserIds = FutureExt.ftraverse(cmd.userIds.filterNot(_ == cmd.creatorUserId)) { userId ⇒
@@ -52,12 +55,18 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
       // send invites to all users, that creator can invite
       for {
         userIds ← resolvedUserIds
-        _ = userIds foreach (u ⇒ context.parent ! Invite(groupId, u, cmd.creatorAuthId, rng.nextLong()))
+        _ = userIds foreach (u ⇒ context.parent !
+          GroupEnvelope(groupId)
+          .withInvite(Invite(u, cmd.creatorUserId, cmd.creatorAuthId, rng.nextLong())))
       } yield ()
+
+      // asign to integration token storage
+      // we could probably use concrete implementation here, don't we?
+      integrationStorage = new IntegrationTokensStorage(groupId, createdAt.toEpochMilli) //TODO: use dateMillis?
 
       // Group creation
       persist(Created(
-        ts = Instant.now,
+        ts = createdAt,
         groupId,
         typ = None, //Some(cmd.typ),
         creatorUserId = cmd.creatorUserId,
@@ -70,8 +79,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
       )) { evt ⇒
         val newState = commit(evt)
 
-        val date = evt.ts
-        val dateMillis = date.toEpochMilli
+        val dateMillis = createdAt.toEpochMilli
 
         val updateObsolete = UpdateGroupInviteObsolete(
           groupId,
@@ -101,7 +109,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
               cmd.randomId,
               isHidden = false
             )
-            _ ← GroupUserRepo.create(groupId, cmd.creatorUserId, cmd.creatorUserId, date, None, isAdmin = true)
+            _ ← GroupUserRepo.create(groupId, cmd.creatorUserId, cmd.creatorUserId, createdAt, None, isAdmin = true)
           } yield ()
         )
 
@@ -146,9 +154,9 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
       persist(BotAdded(Instant.now, botUserId, botToken)) { evt ⇒
         val newState = commit(evt)
 
+        db.run(GroupBotRepo.create(groupId, botUserId, botToken))
         (for {
           _ ← userExt.create(botUserId, ACLUtils.nextAccessSalt(), None, "Bot", "US", ApiSex.Unknown, isBot = true)
-          _ ← db.run(GroupBotRepo.create(groupId, botUserId, botToken))
           _ ← integrationStorage.upsert(botToken)
         } yield ()) onFailure {
           case e ⇒
@@ -372,15 +380,20 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
     }
   }
 
+  // This case handled in other manner, so we change state in the end
+  // cause user that left, should send service message. And we don't allow non-members
+  // to send message. So we keep him as member until message sent, and remove him from members
   protected def leave(cmd: Leave): Unit = {
+    println(s"=================== in leave, members: ${state.members}, invitedUsers: ${state.invitedUserIds} ")
     if (state.nonMember(cmd.userId)) {
+      println(s"================== ${cmd.userId} is not a member!")
       sender() ! notMember
     } else {
       persist(UserLeft(Instant.now, cmd.userId)) { evt ⇒
-        val newState = commit(evt)
+        //        val newState = commit(evt)
 
         val dateMillis = evt.ts.toEpochMilli
-        val members = newState.members.values.map(_.asStruct).toVector
+        val members = state.members.filterNot(_._1 == cmd.userId).values.map(_.asStruct).toVector
 
         val updateObsolete = UpdateGroupUserLeaveObsolete(groupId, cmd.userId, dateMillis, cmd.randomId)
 
@@ -391,7 +404,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
 
         val membersUpdateNew = UpdateGroupMembersUpdated(groupId, members)
 
-        val serviceMessage = GroupServiceMessages.userLeft(cmd.userId)
+        val serviceMessage = GroupServiceMessages.userLeft
 
         db.run(
           for {
@@ -417,7 +430,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
           obsoleteSeqState ← seqUpdExt.broadcastClientUpdate(
             userId = cmd.userId,
             authId = cmd.authId,
-            bcastUserIds = newState.memberIds + cmd.userId, // push this to other user's devices too
+            bcastUserIds = state.memberIds + cmd.userId, // push this to other user's devices too. actually cmd.userId is still in state.memberIds
             update = updateObsolete,
             pushRules = seqUpdExt.pushRules(isFat = false, Some(PushTexts.Left), Seq(cmd.authId))
           )
@@ -429,7 +442,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
 
           // push updated members list to all group members
           _ ← seqUpdExt.broadcastPeopleUpdate(
-            newState.memberIds,
+            state.memberIds - cmd.userId,
             membersUpdateNew
           )
 
@@ -442,7 +455,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
           )
         } yield seqStateDate
 
-        result pipeTo sender()
+        result andThen { case _ ⇒ commit(evt) } pipeTo sender()
       }
     }
   }
@@ -629,12 +642,12 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
   }
 
   protected def updateTopic(cmd: UpdateTopic): Unit = {
-    def isValidTopic(topic: Option[String]) = topic.forall(_.length < 255)
+    def isValidTopic(topic: Option[String]) = topic.forall(t ⇒ t.nonEmpty && t.length < 255)
 
     if (state.nonMember(cmd.clientUserId)) {
       sender() ! notMember
     } else {
-      val topic = trimToEmpty(cmd.topic)
+      val topic = cmd.topic map (_.trim)
       if (isValidTopic(topic)) {
         // TODO: port events
         persist(TopicUpdated(Instant.now, topic)) { evt ⇒
@@ -691,19 +704,18 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
   }
 
   protected def updateAbout(cmd: UpdateAbout): Unit = {
-    def isValidAbout(about: Option[String]) = about.forall(_.length < 255)
+    def isValidAbout(about: Option[String]) = about.forall(a ⇒ a.nonEmpty && a.length < 255)
 
     if (!state.isAdmin(cmd.clientUserId)) {
       sender() ! notAdmin
     } else {
-      val about = trimToEmpty(cmd.about)
+      val about = cmd.about map (_.trim)
 
       if (isValidAbout(about)) {
         // TODO: port events
         persist(AboutUpdated(Instant.now, about)) { evt ⇒
           val newState = commit(evt)
 
-          val dateMillis = evt.ts.toEpochMilli
           val memberIds = newState.memberIds
 
           val updateNew = UpdateGroupAboutChanged(groupId, about)
@@ -773,7 +785,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
 
   protected def makeUserAdmin(cmd: MakeUserAdmin): Unit = {
     if (!state.isAdmin(cmd.clientUserId) || state.nonMember(cmd.candidateUserId)) {
-      sender() ! Status.Failure(CommonErrors.Forbidden)
+      sender() ! Status.Failure(NotAdmin)
     } else if (state.isAdmin(cmd.candidateUserId)) {
       sender() ! Status.Failure(UserAlreadyAdmin)
     } else {
@@ -853,7 +865,5 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
   //    UpdateGroupExtChanged(groupId, newState.extension) //TODO: figure out and fix
   //          if(bigGroup) UpdateGroupMembersCountChanged(groupId, newState.extension)
   )
-
-  private def trimToEmpty(s: Option[String]): Option[String] = s map (_.trim) filter (_.nonEmpty)
 
 }

@@ -40,7 +40,6 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
   private val db: Database = DbExtension(actorSystem).db
   private val groupExt = GroupExtension(actorSystem)
   private val userExt = UserExtension(actorSystem)
-  //  private implicit val fsAdapter: FileStorageAdapter = FileStorageExtension(actorSystem).fsAdapter
   private val groupPresenceExt = GroupPresenceExtension(actorSystem)
 
   /**
@@ -450,7 +449,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
               for {
                 member ← GroupUserRepo.find(groupPeer.groupId, client.userId)
                 response ← member match {
-                  case Some(_) ⇒ DBIO.successful(Error(GroupRpcErrors.YouAlreadyAMember))
+                  case Some(_) ⇒ DBIO.successful(Error(GroupRpcErrors.AlreadyInvited))
                   case None ⇒
                     for {
                       groupStruct ← DBIO.from(groupExt.getApiStruct(groupPeer.groupId, client.userId))
@@ -496,7 +495,8 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     case GroupErrors.TopicTooLong            ⇒ GroupRpcErrors.TopicTooLong
     case GroupErrors.BlockedByUser           ⇒ GroupRpcErrors.BlockedByUser
     case FileErrors.LocationInvalid          ⇒ FileRpcErrors.LocationInvalid
-    case GroupErrors.UserAlreadyInvited      ⇒ GroupRpcErrors.YouAlreadyAMember
+    case GroupErrors.UserAlreadyInvited      ⇒ GroupRpcErrors.AlreadyInvited
+    case GroupErrors.UserAlreadyJoined       ⇒ GroupRpcErrors.AlreadyJoined
     case GroupErrors.GroupIdAlreadyExists(_) ⇒ GroupRpcErrors.GroupIdAlreadyExists
   }
 

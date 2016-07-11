@@ -26,6 +26,9 @@ trait GroupsServiceHelpers {
     val users = Await.result(db.run(persist.UserRepo.findByIds(userIds)), defaultOperationTimeout)
     val userPeers = users.map(user ⇒ ApiUserOutPeer(user.id, ACLUtils.userAccessHash(clientData.authId, user)))
     val result = Await.result(service.handleCreateGroupObsolete(Random.nextLong(), title, userPeers.toVector), defaultOperationTimeout)
+
+    println(s"====================== $result")
+
     result.toOption.get
   }
 

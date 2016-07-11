@@ -98,7 +98,7 @@ trait GroupQueryHandlers {
       GetApiFullStructResponse(
         ApiGroupFull(
           groupId,
-          theme = Some(state.title),
+          theme = state.topic,
           about = state.about,
           ownerUserId = state.creatorUserId,
           createDate = extractCreatedMillis(state),
