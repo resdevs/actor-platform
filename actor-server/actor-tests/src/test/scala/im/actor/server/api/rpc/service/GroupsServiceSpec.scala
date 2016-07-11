@@ -134,6 +134,20 @@ final class GroupsServiceSpec
       expectUpdate(classOf[UpdateGroupUserInvitedObsolete])(identity)
       expectUpdate(classOf[UpdateGroupInviteObsolete])(identity)
       expectUpdate(classOf[UpdateChatGroupsChanged])(identity)
+
+      // produced by create in group v2
+      expectNoUpdate(emptyState, classOf[UpdateGroupMemberChanged])
+      expectNoUpdate(emptyState, classOf[UpdateGroupAboutChanged])
+      expectNoUpdate(emptyState, classOf[UpdateGroupAvatarChanged])
+      expectNoUpdate(emptyState, classOf[UpdateGroupTopicChanged])
+      expectNoUpdate(emptyState, classOf[UpdateGroupTitleChanged])
+      expectNoUpdate(emptyState, classOf[UpdateGroupOwnerChanged])
+
+      // produced by invite in group v2
+      expectNoUpdate(emptyState, classOf[UpdateGroupMembersUpdated])
+
+      // service messages from create/invite in group v2
+      expectNoUpdate(emptyState, classOf[UpdateMessage])
     }
 
     {
@@ -166,6 +180,21 @@ final class GroupsServiceSpec
       expectUpdate(classOf[UpdateGroupUserInvitedObsolete])(identity)
       expectUpdate(classOf[UpdateGroupInviteObsolete])(identity)
       expectUpdate(classOf[UpdateGroupTitleChangedObsolete])(identity)
+
+      // produced by create in group v2
+      expectNoUpdate(emptyState, classOf[UpdateGroupMemberChanged])
+      expectNoUpdate(emptyState, classOf[UpdateGroupAboutChanged])
+      expectNoUpdate(emptyState, classOf[UpdateGroupAvatarChanged])
+      expectNoUpdate(emptyState, classOf[UpdateGroupTopicChanged])
+      expectNoUpdate(emptyState, classOf[UpdateGroupTitleChanged])
+      expectNoUpdate(emptyState, classOf[UpdateGroupOwnerChanged])
+
+      // produced by chnage group title group v2
+      //TODO: it won't work this way
+      expectNoUpdate(emptyState, classOf[UpdateGroupTitleChanged])
+
+      // service messages from create/change title in group v2
+      expectNoUpdate(emptyState, classOf[UpdateMessage])
     }
 
     {

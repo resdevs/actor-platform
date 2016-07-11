@@ -88,7 +88,7 @@ final class HttpApiFrontendSpec
 
     val groupName = "Test group"
     val groupOutPeer = createGroup(groupName, Set(user2.id)).groupPeer
-    val publicGroup = createPubGroup("public group", "PG", Set(user2.id)).groupPeer
+    //    val publicGroup = createPubGroup("public group", "PG", Set(user2.id)).groupPeer
 
     val resourcesPath = Paths.get(getClass.getResource("/files").toURI).toFile.getCanonicalPath
     val config = {
@@ -109,17 +109,17 @@ final class HttpApiFrontendSpec
       }
     }
 
-    def publicGroups() = {
-      val token = extractToken(publicGroup.groupId)
-      val request = HttpRequest(
-        method = POST,
-        uri = s"${config.baseUri}/v1/webhooks/$token",
-        entity = """{"text":"FLOOD FLOOD FLOOD"}"""
-      )
-      whenReady(singleRequest(request)) { resp ⇒
-        resp.status shouldEqual StatusCodes.Forbidden
-      }
-    }
+    //    def publicGroups() = {
+    //      val token = extractToken(publicGroup.groupId)
+    //      val request = HttpRequest(
+    //        method = POST,
+    //        uri = s"${config.baseUri}/v1/webhooks/$token",
+    //        entity = """{"text":"FLOOD FLOOD FLOOD"}"""
+    //      )
+    //      whenReady(singleRequest(request)) { resp ⇒
+    //        resp.status shouldEqual StatusCodes.Forbidden
+    //      }
+    //    }
 
     def nonExistingBot() = {
       val wrongToken = "xxx"

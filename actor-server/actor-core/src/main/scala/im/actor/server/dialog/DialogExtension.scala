@@ -144,7 +144,7 @@ final class DialogExtensionImpl(system: ActorSystem) extends DialogExtension wit
       sendMessage = SendMessage(
         origin = Some(Peer.privat(senderUserId)),
         dest = Some(mPeer),
-        senderAuthId = None, // don't pass authId - so we can deliver
+        senderAuthId = None, // don't pass authId - so we can deliver UpdateMessage to all authIds of sender user.
         date = None,
         randomId = randomId,
         message = message,

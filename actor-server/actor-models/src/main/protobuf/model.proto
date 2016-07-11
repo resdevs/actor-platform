@@ -14,6 +14,7 @@ message SerializedUpdate {
     bytes body = 2;
     repeated int32 user_ids = 3;
     repeated int32 group_ids = 4;
+    string tag = 5;
 }
 
 message UpdateMapping {

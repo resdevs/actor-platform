@@ -179,6 +179,7 @@ class MessagingServiceSpec
       val groupState = mkSeqState(groupResponse.seq, groupResponse.state)
       val groupOutPeer = groupResponse.groupPeer
 
+      // не работает из за сервисного сообщения!
       def sendMessage() = {
         val randomId = Random.nextLong()
 

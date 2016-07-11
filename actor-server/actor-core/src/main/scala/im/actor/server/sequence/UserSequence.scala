@@ -162,7 +162,7 @@ private[sequence] final class UserSequence
       userSeq ← db.run(UserSequenceRepo.fetchSeq(userId)) map (_ getOrElse Const.UserSeqStart)
       authIdsModels ← db.run(AuthIdRepo.findByUserId(userId))
       authIds = authIdsModels map (_.id)
-      _ = this.authIdsOptFu = authIds.map(_ → Optimization.EmptyFunc).toMap
+      _ = this.authIdsOptFu = authIds.map(_ → Optimization.Default).toMap
       authIdsSeqs ← initializeSeqs(userSeq, authIds)
     } yield Initialized(userSeq, authIdsSeqs.toMap)) pipeTo self
 
@@ -295,7 +295,7 @@ private[sequence] final class UserSequence
 
   private def addAuthId(authId: Long) = {
     if (!this.authIdsOptFu.contains(authId)) {
-      this.authIdsOptFu += authId → Optimization.EmptyFunc
+      this.authIdsOptFu += authId → Optimization.Default
     }
     if (!this.seqMap.contains(authId)) {
       for {

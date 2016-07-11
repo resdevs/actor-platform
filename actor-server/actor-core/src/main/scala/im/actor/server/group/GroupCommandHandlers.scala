@@ -183,7 +183,6 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
 
         // if user ever been in this group - we should push these updates,
         // but don't push them if user is first time in group. in this case we should push FatSeqUpdate
-        //TODO: duplication - move to method
         val inviteeUpdatesNew: List[Update] = refreshGroupUpdates(newState)
 
         // отправить всем, в том числе тому кто вошел в группу.
