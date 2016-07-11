@@ -22,6 +22,14 @@ trait ProcessorState[S] {
 abstract class ProcessorError(msg: String) extends RuntimeException(msg) with NoStackTrace
 
 trait PersistenceDebug extends PersistentActor with ActorLogging with AlertingActor {
+  val logReceive: Receive = new PartialFunction[Any, Unit] {
+    def isDefinedAt(x: Any): Boolean = {
+      log.debug(s"Got message of class ${x.getClass.getName}: $x")
+      false
+    }
+    def apply(v1: Any): Unit = throw new RuntimeException("Should not be here!")
+  }
+
   override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long): Unit = {
     super.onPersistFailure(cause, event, seqNr)
 

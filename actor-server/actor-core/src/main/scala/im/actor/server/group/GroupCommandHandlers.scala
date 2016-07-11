@@ -60,9 +60,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
           .withInvite(Invite(u, cmd.creatorUserId, cmd.creatorAuthId, rng.nextLong())))
       } yield ()
 
-      // asign to integration token storage
-      // we could probably use concrete implementation here, don't we?
-      integrationStorage = new IntegrationTokensStorage(groupId, createdAt.toEpochMilli) //TODO: use dateMillis?
+      integrationStorage = new IntegrationTokensKeyValueStorage
 
       // Group creation
       persist(Created(
@@ -158,7 +156,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
         db.run(GroupBotRepo.create(groupId, botUserId, botToken))
         (for {
           _ ← userExt.create(botUserId, ACLUtils.nextAccessSalt(), None, "Bot", "US", ApiSex.Unknown, isBot = true)
-          _ ← integrationStorage.upsert(botToken)
+          _ ← integrationStorage.upsertToken(botToken, groupId)
         } yield ()) onFailure {
           case e ⇒
             log.error(e, "Failed to create group bot")
@@ -779,10 +777,10 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
         db.run(GroupBotRepo.updateToken(groupId, newToken))
         val result: Future[RevokeIntegrationTokenAck] = for {
           _ ← oldToken match {
-            case Some(token) ⇒ integrationStorage.delete(token)
+            case Some(token) ⇒ integrationStorage.deleteToken(token)
             case None        ⇒ FastFuture.successful(())
           }
-          _ ← integrationStorage.upsert(newToken)
+          _ ← integrationStorage.upsertToken(newToken, groupId)
         } yield RevokeIntegrationTokenAck(newToken)
 
         result pipeTo sender()

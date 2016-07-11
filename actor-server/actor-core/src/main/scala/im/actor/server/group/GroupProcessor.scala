@@ -99,21 +99,12 @@ private[group] final class GroupProcessor
   protected val seqUpdExt = SeqUpdatesExtension(system)
   protected val userExt = UserExtension(system)
 
-  protected var integrationStorage: IntegrationTokensStorage = _
+  protected var integrationStorage: IntegrationTokensWriteOps = _
 
   protected val groupId = self.path.name.toInt
   protected val apiGroupPeer = ApiPeer(ApiPeerType.Group, groupId)
 
   context.setReceiveTimeout(5.hours)
-
-  val logReceive = new PartialFunction[Any, Unit] {
-    def isDefinedAt(x: Any): Boolean = {
-      println(s"============got message: ${x},  of type: ${x.getClass.getName}")
-      println(s"============ state is: ${state}")
-      false
-    }
-    def apply(v1: Any): Unit = throw new RuntimeException("Should not be here!")
-  }
 
   protected def handleCommand: Receive = logReceive orElse {
     //or move inside of method?
@@ -188,7 +179,7 @@ private[group] final class GroupProcessor
     super.onRecoveryCompleted()
     // set integrationStorage only for created group
     if (state.isCreated) {
-      integrationStorage = new IntegrationTokensStorage(groupId, state.createdAt.get.toEpochMilli) //FIXME
+      integrationStorage = new IntegrationTokensWriteCompat(state.createdAt.get.toEpochMilli)
     }
   }
 }
