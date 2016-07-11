@@ -3,26 +3,30 @@ package im.actor.server.sequence
 import com.google.protobuf.ByteString
 import im.actor.api.rpc.counters.UpdateCountersChanged
 import im.actor.api.rpc.groups._
-import im.actor.api.rpc.sequence.{ApiUpdateOptimization, UpdateEmptyUpdate}
+import im.actor.api.rpc.sequence.{ ApiUpdateOptimization, UpdateEmptyUpdate }
 import im.actor.server.messaging.MessageParsing
 import im.actor.server.model.SerializedUpdate
 
 object Optimization extends MessageParsing {
-  type UpdateHeader = Int
-  type Func = SerializedUpdate ⇒ SerializedUpdate
+  val GroupV2 = "GROUPS_V2"
+
+  private type UpdateHeader = Int
+  private type DeliveryId = String
+
+  type Func = DeliveryId ⇒ (SerializedUpdate ⇒ SerializedUpdate)
 
   private val emptyUpdate = SerializedUpdate(
     header = UpdateEmptyUpdate.header,
     body = ByteString.copyFrom(UpdateEmptyUpdate.toByteArray)
   )
 
-  private val EmptyFunc: Func = identity[SerializedUpdate]
+  private val EmptyFunc: Func = deliveryId ⇒ identity[SerializedUpdate]
 
   // this is our default client we must support.
-  // it is
+  // none of optimizations are applied. new updates are excluded from final sequence, we also can exlude messages by deliveryId
   private val noOptimizationTransformation: Map[ApiUpdateOptimization.ApiUpdateOptimization, Func] = Map(
     ApiUpdateOptimization.STRIP_COUNTERS → EmptyFunc,
-    ApiUpdateOptimization.GROUPS_V2 → { upd: SerializedUpdate ⇒
+    ApiUpdateOptimization.GROUPS_V2 → { deliveryId ⇒ upd ⇒
       val excludeUpdates = Set(
         UpdateGroupAboutChanged.header,
         UpdateGroupAvatarChanged.header,
@@ -41,18 +45,25 @@ object Optimization extends MessageParsing {
         UpdateGroupMembersCountChanged.header,
         UpdateGroupMemberAdminChanged.header
       )
-      excludeIfContains(excludeUpdates, upd)
+      if (deliveryId.startsWith(GroupV2))
+        emptyUpdate
+      else
+        excludeIfContains(excludeUpdates, upd)
     }
   )
 
-  val Default: Func = Function.chain(noOptimizationTransformation.values.toSeq)
+  val Default: Func = { deliveryId ⇒
+    Function.chain((noOptimizationTransformation.values map { e ⇒
+      e(deliveryId)
+    }).toSeq)
+  }
 
   private val optimizationTransformation: Map[ApiUpdateOptimization.ApiUpdateOptimization, Func] = Map(
-    ApiUpdateOptimization.STRIP_COUNTERS → { upd: SerializedUpdate ⇒
+    ApiUpdateOptimization.STRIP_COUNTERS → { _ ⇒ upd ⇒
       val excludeUpdates = Set(UpdateCountersChanged.header)
       excludeIfContains(excludeUpdates, upd)
     },
-    ApiUpdateOptimization.GROUPS_V2 → { upd: SerializedUpdate ⇒
+    ApiUpdateOptimization.GROUPS_V2 → { _ ⇒ upd ⇒
       val excludeUpdates = Set(
         UpdateGroupInviteObsolete.header,
         UpdateGroupUserInvitedObsolete.header,
@@ -76,6 +87,10 @@ object Optimization extends MessageParsing {
       val opt = ApiUpdateOptimization(optIndex)
       opt → optimizationTransformation(opt)
     }
-    Function.chain((noOptimizationTransformation ++ enabledOptimizations).values.toSeq)
+    { deliveryId: String ⇒
+      Function.chain(((noOptimizationTransformation ++ enabledOptimizations).values map {
+        e ⇒ e(deliveryId)
+      }).toSeq)
+    }
   }
 }

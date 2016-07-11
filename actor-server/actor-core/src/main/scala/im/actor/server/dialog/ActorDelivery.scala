@@ -29,7 +29,8 @@ final class ActorDelivery()(implicit val system: ActorSystem)
     randomId:       Long,
     timestamp:      Long,
     message:        ApiMessage,
-    isFat:          Boolean
+    isFat:          Boolean,
+    deliveryTag:    Option[String]
   ): Future[Unit] = {
     val receiverUpdate = UpdateMessage(
       peer = peer.asStruct,
@@ -41,6 +42,7 @@ final class ActorDelivery()(implicit val system: ActorSystem)
       quotedMessage = None
     )
 
+    val deliveryIdBase = s"msg_${peer.toString}_$randomId"
     for {
       senderName ← UserExtension(system).getName(senderUserId, receiverUserId)
       (pushText, censoredPushText) ← getPushText(peer, receiverUserId, senderName, message)
@@ -53,7 +55,7 @@ final class ActorDelivery()(implicit val system: ActorSystem)
             .withCensoredText(censoredPushText)
             .withPeer(peer)
         ),
-        deliveryId = s"msg_${peer.toString}_$randomId"
+        deliveryId = deliveryTag map (t ⇒ s"${t}_${deliveryIdBase}") getOrElse deliveryIdBase
       )
     } yield ()
   }
@@ -76,7 +78,8 @@ final class ActorDelivery()(implicit val system: ActorSystem)
     randomId:     Long,
     timestamp:    Long,
     message:      ApiMessage,
-    isFat:        Boolean
+    isFat:        Boolean,
+    deliveryTag:  Option[String]
   ): Future[SeqState] = {
     val apiPeer = peer.asStruct
     val senderUpdate = UpdateMessage(
@@ -91,13 +94,14 @@ final class ActorDelivery()(implicit val system: ActorSystem)
 
     val senderClientUpdate = UpdateMessageSent(apiPeer, randomId, timestamp)
 
+    val deliveryIdBase = s"msg_${peer.toString}_$randomId"
     seqUpdExt.deliverCustomUpdate(
       userId = senderUserId,
       authId = senderAuthId getOrElse 0L,
       default = Some(senderUpdate),
       custom = senderAuthId map (authId ⇒ Map(authId → senderClientUpdate)) getOrElse Map.empty,
       pushRules = PushRules(isFat = isFat, excludeAuthIds = senderAuthId.toSeq),
-      deliveryId = s"msg_${peer.toString}_$randomId"
+      deliveryId = deliveryTag map (t ⇒ s"${t}_${deliveryIdBase}") getOrElse deliveryIdBase
     )
   }
 

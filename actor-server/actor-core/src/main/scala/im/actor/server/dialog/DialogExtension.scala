@@ -135,7 +135,8 @@ final class DialogExtensionImpl(system: ActorSystem) extends DialogExtension wit
     senderUserId: UserId,
     senderAuthId: Long,
     randomId:     RandomId,
-    message:      ApiMessage
+    message:      ApiMessage,
+    deliveryTag:  Option[String] // tag that we will use to optimize sequence TODO: none by default
   ): Future[SeqStateDate] = {
     val mPeer = peer.asModel
     val sendFu = _sendMessage(
@@ -148,7 +149,8 @@ final class DialogExtensionImpl(system: ActorSystem) extends DialogExtension wit
         date = None,
         randomId = randomId,
         message = message,
-        accessHash = None // don't pass accessHash - we trust server
+        accessHash = None, // don't pass accessHash - we trust server
+        deliveryTag = deliveryTag
       )
     )
 

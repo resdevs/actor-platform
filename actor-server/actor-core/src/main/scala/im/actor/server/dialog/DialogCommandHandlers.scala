@@ -61,11 +61,11 @@ trait DialogCommandHandlers extends PeersImplicits with UserAcl {
                 _ ← dialogExt.ackSendMessage(peer, sm.copy(date = Some(sendDate)))
                 _ ← db.run(writeHistoryMessage(selfPeer, peer, new DateTime(sendDate), sm.randomId, message.header, message.toByteArray))
                 //_ = dialogExt.updateCounters(peer, userId)
-                SeqState(seq, state) ← deliveryExt.senderDelivery(userId, optClientAuthId, peer, sm.randomId, sendDate, message, sm.isFat)
+                SeqState(seq, state) ← deliveryExt.senderDelivery(userId, optClientAuthId, peer, sm.randomId, sendDate, message, sm.isFat, sm.deliveryTag)
               } yield SeqStateDate(seq, state, sendDate),
                 failed = for {
                 _ ← db.run(writeHistoryMessageSelf(userId, peer, userId, new DateTime(sendDate), sm.randomId, message.header, message.toByteArray))
-                SeqState(seq, state) ← deliveryExt.senderDelivery(userId, optClientAuthId, peer, sm.randomId, sendDate, message, sm.isFat)
+                SeqState(seq, state) ← deliveryExt.senderDelivery(userId, optClientAuthId, peer, sm.randomId, sendDate, message, sm.isFat, sm.deliveryTag)
               } yield SeqStateDate(seq, state, sendDate)
               )
           }
@@ -88,7 +88,7 @@ trait DialogCommandHandlers extends PeersImplicits with UserAcl {
       }
 
       deliveryExt
-        .receiverDelivery(userId, sm.getOrigin.id, peer, sm.randomId, messageDate, sm.message, sm.isFat)
+        .receiverDelivery(userId, sm.getOrigin.id, peer, sm.randomId, messageDate, sm.message, sm.isFat, sm.deliveryTag)
         .map(_ ⇒ SendMessageAck())
         .pipeTo(sender())
 

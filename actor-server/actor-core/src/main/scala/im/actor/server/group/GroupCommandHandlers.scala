@@ -20,7 +20,7 @@ import im.actor.server.group.GroupCommands._
 import im.actor.server.model.{ AvatarData, Group }
 import im.actor.server.office.PushTexts
 import im.actor.server.persist.{ AvatarDataRepo, GroupBotRepo, GroupInviteTokenRepo, GroupRepo, GroupUserRepo }
-import im.actor.server.sequence.{ SeqState, SeqStateDate }
+import im.actor.server.sequence.{ Optimization, SeqState, SeqStateDate }
 import im.actor.util.ThreadLocalSecureRandom
 import im.actor.util.misc.IdUtils
 
@@ -136,7 +136,8 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
             senderUserId = cmd.creatorUserId,
             senderAuthId = cmd.creatorAuthId,
             randomId = cmd.randomId,
-            message = serviceMessage
+            message = serviceMessage,
+            deliveryTag = Some(Optimization.GroupV2)
           )
 
         } yield CreateAck(newState.accessHash).withSeqStateDate(seqStateDate)
@@ -268,7 +269,8 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
             cmd.inviterUserId,
             cmd.inviterAuthId,
             cmd.randomId,
-            serviceMessage
+            serviceMessage,
+            deliveryTag = Some(Optimization.GroupV2)
           )
 
           //          SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
@@ -370,7 +372,8 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
               senderUserId = cmd.joiningUserId,
               senderAuthId = cmd.joiningUserAuthId,
               randomId = randomId,
-              serviceMessage
+              serviceMessage,
+              deliveryTag = Some(Optimization.GroupV2)
             )
           } yield (seqStateDate, memberIds.toVector :+ inviterUserId, randomId)
 
@@ -450,7 +453,8 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
             senderUserId = cmd.userId,
             senderAuthId = cmd.authId,
             randomId = cmd.randomId,
-            message = serviceMessage
+            message = serviceMessage,
+            deliveryTag = Some(Optimization.GroupV2)
           )
         } yield seqStateDate
 
@@ -525,7 +529,8 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
             senderUserId = cmd.kickerUserId,
             senderAuthId = cmd.kickerAuthId,
             randomId = cmd.randomId,
-            message = serviceMessage
+            message = serviceMessage,
+            deliveryTag = Some(Optimization.GroupV2)
           )
         } yield seqStateDate
 
@@ -562,7 +567,8 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
             senderUserId = cmd.clientUserId,
             senderAuthId = cmd.clientAuthId,
             randomId = cmd.randomId,
-            message = serviceMessage
+            message = serviceMessage,
+            deliveryTag = Some(Optimization.GroupV2)
           )
 
           //          SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
@@ -628,7 +634,8 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
             senderUserId = cmd.clientUserId,
             senderAuthId = cmd.clientAuthId,
             randomId = cmd.randomId,
-            message = serviceMessage
+            message = serviceMessage,
+            deliveryTag = Some(Optimization.GroupV2)
           )
 
           //          SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
@@ -688,7 +695,8 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
               senderUserId = cmd.clientUserId,
               senderAuthId = cmd.clientAuthId,
               randomId = cmd.randomId,
-              message = serviceMessage
+              message = serviceMessage,
+              deliveryTag = Some(Optimization.GroupV2)
             )
 
             //            SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState
@@ -744,7 +752,8 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
               senderUserId = cmd.clientUserId,
               senderAuthId = cmd.clientAuthId,
               randomId = cmd.randomId,
-              message = serviceMessage
+              message = serviceMessage,
+              deliveryTag = Some(Optimization.GroupV2)
             )
 
             //            SeqState(seq, state) = if (cmd.isV2) newSeqState else obsoleteSeqState

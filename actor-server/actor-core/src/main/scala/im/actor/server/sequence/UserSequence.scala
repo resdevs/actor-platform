@@ -176,7 +176,7 @@ private[sequence] final class UserSequence
     cached(authId, deliveryId) {
       nextCommonSeq()
 
-      val optimizedMapping = applyOptimizations(mapping)
+      val optimizedMapping = applyOptimizations(deliveryId, mapping)
 
       val seqUpdate = SeqUpdate(
         userId = userId,
@@ -275,19 +275,11 @@ private[sequence] final class UserSequence
     }
   }
 
-  private def applyOptimizations(mapping: UpdateMapping): UpdateMapping = {
+  private def applyOptimizations(deliverId: String, mapping: UpdateMapping): UpdateMapping = {
     val default = mapping.getDefault
-    //    ??? how to optimize message sending?
-    //    if (default.header == UpdateMessage.header || default.header == UpdateMessageSent.header) {
-    //
-    //
-    //
-    //
-    //
-    //    }
     val customOptimized = authIdsOptFu flatMap {
       case (authId, optFunc) ⇒
-        val optimized = optFunc(default)
+        val optimized = optFunc(deliverId)(default)
         if (optimized == default) None else Some(authId → optimized)
     }
     mapping.copy(custom = mapping.custom ++ customOptimized)

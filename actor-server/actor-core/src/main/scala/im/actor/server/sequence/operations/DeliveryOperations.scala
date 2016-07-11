@@ -153,7 +153,7 @@ trait DeliveryOperations { this: SeqUpdatesExtension ⇒
 
   private def buildDeliver(authId: Long, mapping: UpdateMapping, pushRules: PushRules, reduceKey: Option[String], deliveryId: String): DeliverUpdate =
     DeliverUpdate(
-      authId = authId,// this is clientAuthId, not the auth id we should deliver to
+      authId = authId, // this is clientAuthId, not the auth id we should deliver to
       mapping = Some(mapping),
       pushRules = Some(pushRules),
       reduceKey map (StringValue(_)),

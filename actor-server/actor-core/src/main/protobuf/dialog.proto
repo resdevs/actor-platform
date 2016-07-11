@@ -256,6 +256,7 @@ message DialogCommands {
         google.protobuf.Int64Value access_hash = 10;
         bool is_fat = 6;
         google.protobuf.Int32Value for_user_id = 12;
+        google.protobuf.StringValue delivery_tag = 13;
     }
 
     message SendMessageAck {}
