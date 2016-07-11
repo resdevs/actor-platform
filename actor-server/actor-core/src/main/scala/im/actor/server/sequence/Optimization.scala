@@ -11,22 +11,22 @@ object Optimization extends MessageParsing {
   val GroupV2 = "GROUPS_V2"
 
   private type UpdateHeader = Int
-  private type DeliveryId = String
+  private type DeliveryTag = String
 
-  type Func = DeliveryId ⇒ (SerializedUpdate ⇒ SerializedUpdate)
+  type Func = DeliveryTag ⇒ (SerializedUpdate ⇒ SerializedUpdate)
 
   private val emptyUpdate = SerializedUpdate(
     header = UpdateEmptyUpdate.header,
     body = ByteString.copyFrom(UpdateEmptyUpdate.toByteArray)
   )
 
-  private val EmptyFunc: Func = deliveryId ⇒ identity[SerializedUpdate]
+  private val EmptyFunc: Func = deliveryTag ⇒ identity[SerializedUpdate]
 
   // this is our default client we must support.
-  // none of optimizations are applied. new updates are excluded from final sequence, we also can exlude messages by deliveryId
+  // none of optimizations are applied. new updates are excluded from final sequence, we also can exlude messages by deliveryTag
   private val noOptimizationTransformation: Map[ApiUpdateOptimization.ApiUpdateOptimization, Func] = Map(
     ApiUpdateOptimization.STRIP_COUNTERS → EmptyFunc,
-    ApiUpdateOptimization.GROUPS_V2 → { deliveryId ⇒ upd ⇒
+    ApiUpdateOptimization.GROUPS_V2 → { deliveryTag ⇒ upd ⇒
       val excludeUpdates = Set(
         UpdateGroupAboutChanged.header,
         UpdateGroupAvatarChanged.header,
@@ -45,16 +45,16 @@ object Optimization extends MessageParsing {
         UpdateGroupMembersCountChanged.header,
         UpdateGroupMemberAdminChanged.header
       )
-      if (deliveryId.startsWith(GroupV2))
+      if (deliveryTag == GroupV2)
         emptyUpdate
       else
         excludeIfContains(excludeUpdates, upd)
     }
   )
 
-  val Default: Func = { deliveryId ⇒
+  val Default: Func = { deliveryTag ⇒
     Function.chain((noOptimizationTransformation.values map { e ⇒
-      e(deliveryId)
+      e(deliveryTag)
     }).toSeq)
   }
 
@@ -87,9 +87,9 @@ object Optimization extends MessageParsing {
       val opt = ApiUpdateOptimization(optIndex)
       opt → optimizationTransformation(opt)
     }
-    { deliveryId: String ⇒
+    { deliveryTag: String ⇒
       Function.chain(((noOptimizationTransformation ++ enabledOptimizations).values map {
-        e ⇒ e(deliveryId)
+        e ⇒ e(deliveryTag)
       }).toSeq)
     }
   }

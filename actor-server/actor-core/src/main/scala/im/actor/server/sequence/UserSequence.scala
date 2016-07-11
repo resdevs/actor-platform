@@ -134,9 +134,9 @@ private[sequence] final class UserSequence
 
   private def initialized: Receive = {
     case cmd: VendorPushCommand ⇒ vendorPush forward cmd
-    case DeliverUpdate(authId, mappingOpt, pushRules, reduceKey, deliveryId) ⇒
+    case DeliverUpdate(authId, mappingOpt, pushRules, reduceKey, deliveryId, deliveryTag) ⇒
       mappingOpt match {
-        case Some(mapping) ⇒ deliver(authId, mapping, pushRules, reduceKey, deliveryId)
+        case Some(mapping) ⇒ deliver(authId, mapping, pushRules, reduceKey, deliveryId, deliveryTag)
         case None          ⇒ log.error("Empty mapping")
       }
     case GetSeqState(authId) ⇒
@@ -167,16 +167,17 @@ private[sequence] final class UserSequence
     } yield Initialized(userSeq, authIdsSeqs.toMap)) pipeTo self
 
   private def deliver(
-    authId:     Long,
-    mapping:    UpdateMapping,
-    pushRules:  Option[PushRules],
-    reduceKey:  Option[StringValue],
-    deliveryId: String
+    authId:      Long,
+    mapping:     UpdateMapping,
+    pushRules:   Option[PushRules],
+    reduceKey:   Option[String],
+    deliveryId:  String,
+    deliveryTag: Option[String]
   ): Unit = {
     cached(authId, deliveryId) {
       nextCommonSeq()
 
-      val optimizedMapping = applyOptimizations(deliveryId, mapping)
+      val optimizedMapping = applyOptimizations(deliveryTag, mapping)
 
       val seqUpdate = SeqUpdate(
         userId = userId,
@@ -275,11 +276,11 @@ private[sequence] final class UserSequence
     }
   }
 
-  private def applyOptimizations(deliverId: String, mapping: UpdateMapping): UpdateMapping = {
+  private def applyOptimizations(deliveryTag: Option[String], mapping: UpdateMapping): UpdateMapping = {
     val default = mapping.getDefault
     val customOptimized = authIdsOptFu flatMap {
       case (authId, optFunc) ⇒
-        val optimized = optFunc(deliverId)(default)
+        val optimized = optFunc(deliveryTag.getOrElse(""))(default)
         if (optimized == default) None else Some(authId → optimized)
     }
     mapping.copy(custom = mapping.custom ++ customOptimized)

@@ -372,8 +372,7 @@ private[group] trait GroupCommandHandlers extends GroupsImplicits with UserAcl {
               senderUserId = cmd.joiningUserId,
               senderAuthId = cmd.joiningUserAuthId,
               randomId = randomId,
-              serviceMessage,
-              deliveryTag = Some(Optimization.GroupV2)
+              serviceMessage // no delivery tag. This updated handled this way in Groups V1
             )
           } yield (seqStateDate, memberIds.toVector :+ inviterUserId, randomId)
 
