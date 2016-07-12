@@ -81,7 +81,7 @@ private[group] final class GroupsHttpHandler()(implicit system: ActorSystem) ext
         large ← avatar.largeImage.map(i ⇒ urlOrNone(i.fileLocation)) getOrElse FastFuture.successful(None)
         full ← avatar.fullImage.map(i ⇒ urlOrNone(i.fileLocation)) getOrElse FastFuture.successful(None)
       } yield Some(json.AvatarUrls(small, large, full))
-    } getOrElse FastFuture.successful(None)
+    } getOrElse FastFuture.successful(Some(json.AvatarUrls(None, None, None)))
   }
 
   private def urlOrNone(location: FileLocation): Future[Option[String]] =
