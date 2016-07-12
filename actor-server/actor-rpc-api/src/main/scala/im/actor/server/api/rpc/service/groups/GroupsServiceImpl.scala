@@ -18,7 +18,7 @@ import im.actor.server.group._
 import im.actor.server.model.GroupInviteToken
 import im.actor.server.persist.{ GroupInviteTokenRepo, GroupUserRepo }
 import im.actor.server.presences.GroupPresenceExtension
-import im.actor.server.sequence.{ SeqState, SeqStateDate }
+import im.actor.server.sequence.{ SeqState, SeqStateDate, SeqUpdatesExtension }
 import im.actor.server.user.UserExtension
 import im.actor.util.ThreadLocalSecureRandom
 import im.actor.util.misc.IdUtils
@@ -39,6 +39,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
 
   private val db: Database = DbExtension(actorSystem).db
   private val groupExt = GroupExtension(actorSystem)
+  private val seqUpdExt = SeqUpdatesExtension(actorSystem)
   private val userExt = UserExtension(actorSystem)
   private val groupPresenceExt = GroupPresenceExtension(actorSystem)
 
@@ -125,6 +126,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseEditGroupAvatar]] =
     authorized(clientData) { implicit client ⇒
+      addOptimizations(optimizations)
       val action = withFileLocation(fileLocation, AvatarSizeLimit) {
         scaleAvatar(fileLocation.fileId) flatMap {
           case Right(avatar) ⇒
@@ -152,6 +154,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseSeqDate]] =
     authorized(clientData) { implicit client ⇒
+      addOptimizations(optimizations)
       for {
         UpdateAvatarAck(avatar, seqStateDate) ← groupExt.updateAvatar(
           groupPeer.groupId,
@@ -176,6 +179,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseSeqDate]] =
     authorized(clientData) { implicit client ⇒
+      addOptimizations(optimizations)
       withGroupOutPeer(groupPeer) {
         for {
           SeqStateDate(seq, state, date) ← groupExt.kickUser(groupPeer.groupId, userOutPeer.userId, randomId)
@@ -193,6 +197,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseSeqDate]] =
     authorized(clientData) { implicit client ⇒
+      addOptimizations(optimizations)
       withGroupOutPeer(groupPeer) {
         for {
           SeqStateDate(seq, state, date) ← groupExt.leaveGroup(groupPeer.groupId, randomId)
@@ -212,6 +217,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseCreateGroup]] =
     authorized(clientData) { implicit client ⇒
+      addOptimizations(optimizations)
       withUserOutPeers(users) {
         val stripEntities = optimizations.contains(ApiUpdateOptimization.STRIP_ENTITIES)
         val groupId = nextIntId()
@@ -253,6 +259,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseSeqDate]] =
     authorized(clientData) { implicit client ⇒
+      addOptimizations(optimizations)
       withGroupOutPeer(groupPeer) {
         withUserOutPeer(userOutPeer) {
           for {
@@ -273,6 +280,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseSeqDate]] =
     authorized(clientData) { implicit client ⇒
+      addOptimizations(optimizations)
       withGroupOutPeer(groupPeer) {
         for {
           SeqStateDate(seq, state, date) ← groupExt.updateTitle(groupPeer.groupId, client.userId, client.authId, title, randomId)
@@ -308,9 +316,9 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseJoinGroup]] =
     authorized(clientData) { implicit client ⇒
+      addOptimizations(optimizations)
       val token = extractInviteToken(urlOrToken)
       val stripEntities = optimizations.contains(ApiUpdateOptimization.STRIP_ENTITIES)
-      //      val isV2 = optimizations.contains(ApiUpdateOptimization.GROUPS_V2)
 
       val action = for {
         tokenInfo ← fromFutureOption(GroupRpcErrors.InvalidInviteToken)(db.run(GroupInviteTokenRepo.findByToken(token)))
@@ -362,6 +370,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseSeqDate]] = {
     authorized(clientData) { implicit client ⇒
+      addOptimizations(optimizations)
       withGroupOutPeer(groupPeer) {
         for {
           SeqStateDate(seq, state, date) ← groupExt.updateTopic(groupPeer.groupId, client.userId, client.authId, topic, randomId) //isV2(optimizations)
@@ -381,6 +390,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     clientData:    ClientData
   ): Future[HandlerResult[ResponseSeqDate]] = {
     authorized(clientData) { implicit client ⇒
+      addOptimizations(optimizations)
       withGroupOutPeer(groupPeer) {
         for {
           SeqStateDate(seq, state, date) ← groupExt.updateAbout(groupPeer.groupId, client.userId, client.authId, about, randomId)
@@ -414,6 +424,10 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
     else
       urlOrToken
 
+  private def addOptimizations(opts: IndexedSeq[ApiUpdateOptimization.Value])(implicit client: AuthorizedClientData): Unit =
+    seqUpdExt.addOptimizations(client.userId, client.authId, opts map (_.id))
+
+  //TODO: move to separate trait
   override def doHandleCreateGroupObsolete(randomId: Long, title: String, users: IndexedSeq[ApiUserOutPeer], clientData: ClientData): Future[HandlerResult[ResponseCreateGroupObsolete]] =
     authorized(clientData) { implicit client ⇒
       withUserOutPeers(users) {
@@ -439,6 +453,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
       }
     }
 
+  //TODO: move to separate trait
   override def doHandleEnterGroupObsolete(groupPeer: ApiGroupOutPeer, clientData: ClientData): Future[HandlerResult[ResponseEnterGroupObsolete]] =
     authorized(clientData) { implicit client ⇒
       withGroupOutPeer(groupPeer) {
@@ -472,6 +487,7 @@ final class GroupsServiceImpl(groupInviteConfig: GroupInviteConfig)(implicit act
    * if this user id already admin - `GroupErrors.UserAlreadyAdmin` will be returned
    * it could be many admins in one group
    */
+  //TODO: move to separate trait
   override def doHandleMakeUserAdminObsolete(
     groupPeer:  ApiGroupOutPeer,
     userPeer:   ApiUserOutPeer,
