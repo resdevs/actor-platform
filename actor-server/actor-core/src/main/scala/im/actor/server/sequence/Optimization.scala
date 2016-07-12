@@ -83,9 +83,9 @@ object Optimization extends MessageParsing {
     if (excludeUpdates contains upd.header) emptyUpdate else upd
 
   def apply(optimizations: Seq[Int]): Func = {
-    val enabledOptimizations = optimizations map { optIndex ⇒
+    val enabledOptimizations = optimizations flatMap { optIndex ⇒
       val opt = ApiUpdateOptimization(optIndex)
-      opt → optimizationTransformation(opt)
+      optimizationTransformation.get(opt) map { v ⇒ opt → v }
     }
     { deliveryTag: String ⇒
       Function.chain(((noOptimizationTransformation ++ enabledOptimizations).values map {
